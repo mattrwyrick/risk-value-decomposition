@@ -1,0 +1,13 @@
+flask
+jupyter
+mlforecast
+neuralforecast
+numpy
+pandas
+plotly
+pykan
+scipy
+scikit-learn
+statsmodels
+statsforecast
+yfinance
