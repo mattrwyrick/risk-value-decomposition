@@ -10,6 +10,8 @@ TIMES_MAPPING = {
 
 TIMES_CHOICE = "Mean"
 
+DATE_COL = "Date"
+
 
 def get_yf_date(dtime):
     """
