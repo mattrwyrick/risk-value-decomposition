@@ -25,12 +25,22 @@ class Results(object):
         self.color_mapping = dict()
         self._set_color_mapping()
 
-    def area_plot(self, show=False, save_tmp=False):
+    def area_plot(self, show=False, save_tmp=False, adj_legend=True):
         """
         Plot the data
         :return:
         """
         fig = px.area(self.df_inputs, x=DATE_COL, y=self.ordered_columns, color_discrete_map=self.color_mapping)
+        if adj_legend:
+            fig.update_layout(
+                legend=dict(
+                    orientation="h",
+                    yanchor="top",
+                    y=-0.2,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
         if show:
             fig.show()
         if save_tmp:

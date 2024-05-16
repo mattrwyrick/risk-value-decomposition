@@ -1,4 +1,7 @@
+import numpy as np
 import datetime as dt
+import plotly.io as pio
+import plotly.express as px
 
 from flask import render_template
 
@@ -34,7 +37,7 @@ def view(request, cache={}):
     cache = add_to_cache(cache, ticker, end_date, start_date, time_choice, normalize, l1_wt, alpha)
 
     if not (ticker and end_date and start_date and time_choice and l1_wt and alpha):
-        return render_template(request, **cache)
+        return render_template(TEMPLATE, **cache)
 
     add_constant = True
 
@@ -61,7 +64,7 @@ def view(request, cache={}):
         df_inputs=df_risk_inputs,
         add_constant=add_constant,
         alpha=alpha,
-        L1_wt=L1_wt,
+        L1_wt=l1_wt,
     )
 
     param_values = list(model.params)
@@ -83,16 +86,26 @@ def view(request, cache={}):
         ordered_columns=ordered_columns
     )
 
-    fig = results.area_plot(save_tmp=True)
+    fig_area = results.area_plot()
+    html_area = pio.to_html(fig_area)
 
-    import plotly.express as px
-    import plotly.io as pio
-    import time
+    fig_line = px.line(target_series)
+    fig_line.update_layout(
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        )
+    )
+    fig_line.update_yaxes(range=[0, target_series.max() + (0.05 * np.mean(target_series))])
+    html_line = pio.to_html(fig_line)
 
-    time.sleep(2)
-    fig2 = px.line(target_series)
-    fig2.update_yaxes(range=[0, target_series.max()])
-    pio.write_html(fig2, file='tmp_chart.html', auto_open=True)
+    cache["area_chart"] = html_area
+    cache["line_chart"] = html_line
+
+    return render_template(TEMPLATE, **cache)
 
 
 def get_values_from_request(request):
@@ -110,8 +123,8 @@ def get_values_from_request(request):
     try:
         end_date = values["end_date"].strip() if "end_date" in values else None
         if end_date:
-            mdy = [int(p.strip()) for p in end_date.split("/")]  # MM/DD/YYYY
-            dtime = dt.datetime(year=mdy[2], month=mdy[0], day=mdy[1])
+            ymd = [int(p.strip()) for p in end_date.split("-")]  # MM/DD/YYYY
+            dtime = dt.datetime(year=ymd[0], month=ymd[1], day=ymd[2])
             end_date = get_yf_date(dtime)
     except Exception as e:
         end_date = None
@@ -119,8 +132,8 @@ def get_values_from_request(request):
     try:
         start_date = values["start_date"].strip() if "start_date" in values else None
         if start_date:
-            mdy = [int(p.strip()) for p in start_date.split("/")]  # MM/DD/YYYY
-            dtime = dt.datetime(year=mdy[2], month=mdy[0], day=mdy[1])
+            ymd = [int(p.strip()) for p in start_date.split("-")]  # MM/DD/YYYY
+            dtime = dt.datetime(year=ymd[0], month=ymd[1], day=ymd[2])
             start_date = get_yf_date(dtime)
     except Exception as e:
         start_date = None

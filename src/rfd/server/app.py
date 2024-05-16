@@ -5,18 +5,13 @@ from rfd.server.views.home import view as home_view
 
 
 HOST = "127.0.0.1"
-PORT = 8000
+PORT = 5000
 APP = Flask(__name__)
 
 
-@APP.route('/')
+@APP.route('/', methods=["GET", "POST"])
 def index():
-    return render_template('index.html')
-
-
-@APP.route('/about')
-def about():
-    return render_template('about.html')
+    return home_view(request, {"title": "Risk Decomp"})
 
 
 if __name__ == '__main__':
