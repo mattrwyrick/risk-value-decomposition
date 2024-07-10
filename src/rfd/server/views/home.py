@@ -39,7 +39,7 @@ def view(request, cache={}):
     if not (ticker and end_date and start_date and time_choice and l1_wt and alpha):
         return render_template(TEMPLATE, **cache)
 
-    add_constant = True
+    add_constant = False
 
     df_asset = get_asset_data(
         ticker=ticker,
@@ -69,9 +69,9 @@ def view(request, cache={}):
 
     param_values = list(model.params)
     param_names = model.model.exog_names
-    if param_names[0] == "const":
-        param_names[0] = "Idiosyncratic"
-        df_risk_inputs["Idiosyncratic"] = np.mean(target_series) * param_values[0]
+
+    param_names[0] = "Idiosyncratic"
+    df_risk_inputs["Idiosyncratic"] = np.abs(target_series - model.fittedvalues)
 
     df_risk_inputs, ordered_columns = get_linear_proportion_df(
         df_results=df_risk_inputs,
