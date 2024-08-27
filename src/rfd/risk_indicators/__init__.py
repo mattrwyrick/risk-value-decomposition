@@ -3,6 +3,8 @@ import pandas as pd
 
 from rfd.settings import DEFAULT_YF_START_DATE, DEFAULT_YF_END_DATE, TIMES_CHOICE
 
+from rfd.risk_indicators.baseline import COLOR as BASELINE_COLOR, NAME as BASELINE_NAME, get_risk as get_baseline_risk
+
 from rfd.risk_indicators.bond_market import COLOR as BOND_MARKET_COLOR, NAME as BOND_MARKET_NAME, get_risk as get_bond_market_risk
 from rfd.risk_indicators.bond_market_high_yield import COLOR as BOND_MARKET_HY_COLOR, NAME as BOND_MARKET_HY_NAME, get_risk as get_bond_market_risk_high_yield
 
@@ -17,6 +19,7 @@ from rfd.risk_indicators.interest_rate_short_term import COLOR as INTEREST_RATE_
 
 
 RISK_TYPES = [
+    BASELINE_NAME,
     BOND_MARKET_NAME,
     BOND_MARKET_HY_NAME,
     EQUITY_MARKET_NAME,
@@ -30,6 +33,8 @@ RISK_TYPES = [
 
 
 RISK_INDICATOR_MAPPINGS = {
+
+    BASELINE_NAME: get_baseline_risk,
 
     BOND_MARKET_NAME: get_bond_market_risk,
     BOND_MARKET_HY_NAME: get_bond_market_risk_high_yield,
@@ -46,6 +51,8 @@ RISK_INDICATOR_MAPPINGS = {
 }
 
 RISK_COLOR_MAPPING = {
+
+    BASELINE_NAME: BASELINE_COLOR,
 
     BOND_MARKET_NAME: BOND_MARKET_COLOR,
     BOND_MARKET_HY_NAME: BOND_MARKET_HY_COLOR,
@@ -68,18 +75,30 @@ def get_risk_inputs_df(
         yf_end=DEFAULT_YF_END_DATE,
         time_choice=TIMES_CHOICE,
         normalize=True,
-        include_date=False
+        include_const=True,
+        include_date=False,
+        fill_missing_dates=False,
+        fill_missing_method="ffill"
 ):
     """
     Return a df of the risk types
     :param risk_types:
-    :param normalize: bool
-    :param include_date: bool
+    :param yf_start:
+    :param yf_end:
+    :param time_choice:
+    :param normalize:
+    :param include_const:
+    :param include_date:
+    :param fill_missing_dates:
+    :param fill_missing_method:
     :return:
     """
     df_risk_inputs = pd.DataFrame()
     for risk_type in risk_types:
         if risk_type in RISK_INDICATOR_MAPPINGS:
+            if risk_type == BASELINE_NAME and not include_const:
+                continue
+
             df_risk = RISK_INDICATOR_MAPPINGS[risk_type](
                 yf_start=yf_start,
                 yf_end=yf_end,
@@ -89,8 +108,18 @@ def get_risk_inputs_df(
             )
             for col in df_risk.columns:
                 df_risk_inputs[col] = df_risk[col]
+
+    if fill_missing_dates:
+        date_range = pd.date_range(start=yf_start, end=yf_end)
+        df_risk_inputs = df_risk_inputs.reindex(date_range)
+        df_risk_inputs = df_risk_inputs.fillna(method=fill_missing_method)
+
     return df_risk_inputs
 
+
+# plz fix - futures trading
+
+# plz fix - pca on subset of related indicators
 
 
 

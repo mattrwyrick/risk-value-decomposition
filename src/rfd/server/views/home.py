@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import datetime as dt
 import plotly.io as pio
 import plotly.express as px
@@ -16,14 +17,16 @@ from rfd.decomposition.results import Results
 
 from rfd.decomposition.ridge_lasso import (
     get_linear_decomposition,
-    get_linear_proportion_df,
+    get_proportion_df,
 
-    get_nonlinear_decomposition,
-    get_nonlinear_proportion_df
+    # get_nonlinear_decomposition,
+    # get_nonlinear_proportion_df
 )
 
 
 TEMPLATE = "./home.html"
+FILL_MISSING_DATES = True
+FILL_MISSING_METHOD = "ffill"  # forward fill
 
 
 def view(request, cache={}):
@@ -39,45 +42,56 @@ def view(request, cache={}):
     if not (ticker and end_date and start_date and time_choice and l1_wt and alpha):
         return render_template(TEMPLATE, **cache)
 
-    add_constant = False
+    add_constant = True
 
     df_asset = get_asset_data(
         ticker=ticker,
-        yf_start=DEFAULT_YF_START_DATE,
-        yf_end=DEFAULT_YF_END_DATE
+        yf_start=start_date,
+        yf_end=end_date
     )
+
+    if FILL_MISSING_DATES:
+        date_range = pd.date_range(start=end_date, end=start_date)  # plz fix (later)
+        df_asset = df_asset.reindex(date_range)
+        df_asset = df_asset.fillna(method=FILL_MISSING_METHOD)
 
     target_series = df_asset[ticker]
     date_series = df_asset[DATE_COL]
 
     df_risk_inputs = get_risk_inputs_df(
         risk_types=RISK_TYPES,
-        yf_start=DEFAULT_YF_START_DATE,
-        yf_end=DEFAULT_YF_END_DATE,
+        yf_start=end_date,
+        yf_end=start_date,
         time_choice=time_choice,
         normalize=normalize,
-        include_date=False
+        include_date=False,
+        include_const=add_constant,
+        fill_missing_dates=FILL_MISSING_DATES,
+        fill_missing_method=FILL_MISSING_METHOD
     )
 
     model = get_linear_decomposition(
         target_series=target_series,
         df_inputs=df_risk_inputs,
-        add_constant=add_constant,
         alpha=alpha,
         L1_wt=l1_wt,
     )
 
-    param_values = list(model.params)
+    df_fit = pd.DataFrame()
+    df_fit["Date"] = df_asset["Date"]
+
+    param_values = np.abs(list(model.params))
     param_names = model.model.exog_names
 
-    param_names[0] = "Idiosyncratic"
-    df_risk_inputs["Idiosyncratic"] = np.abs(target_series - model.fittedvalues)
+    for i, col in enumerate(param_names):  # plz fix - add statistical tests to filter inputs prior
+        fit_col = f"Fit {col}"
+        df_fit[fit_col] = df_risk_inputs[col] * param_values[i]
 
-    df_risk_inputs, ordered_columns = get_linear_proportion_df(
-        df_results=df_risk_inputs,
-        param_names=param_names,
-        param_values=param_values
-    )
+    df_fit["Fit Idiosyncratic"] = np.abs(target_series - model.fittedvalues)
+
+    df_proportions = get_proportion_df(df=df_risk_inputs, pfilter=False, threshold=0.0)
+
+    df_results
 
     results = Results(
         dates=date_series,
@@ -121,7 +135,7 @@ def get_values_from_request(request):
     normalize = False if "normalize" in values and values["normalize"] == "No" else True
 
     try:
-        end_date = values["end_date"].strip() if "end_date" in values else None
+        end_date = values["end_date"].strip() if "end_date" in values else DEFAULT_YF_END_DATE
         if end_date:
             ymd = [int(p.strip()) for p in end_date.split("-")]  # MM/DD/YYYY
             dtime = dt.datetime(year=ymd[0], month=ymd[1], day=ymd[2])
@@ -130,7 +144,7 @@ def get_values_from_request(request):
         end_date = None
 
     try:
-        start_date = values["start_date"].strip() if "start_date" in values else None
+        start_date = values["start_date"].strip() if "start_date" in values else DEFAULT_YF_START_DATE
         if start_date:
             ymd = [int(p.strip()) for p in start_date.split("-")]  # MM/DD/YYYY
             dtime = dt.datetime(year=ymd[0], month=ymd[1], day=ymd[2])

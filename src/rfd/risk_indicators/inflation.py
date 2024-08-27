@@ -11,7 +11,7 @@ from rfd.settings import (
 )
 
 NAME = "Inflation Risk"
-COLOR = "rgb(250,15,5)"
+COLOR = "rgb(255, 215, 0)"
 
 
 def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):

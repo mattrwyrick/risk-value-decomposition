@@ -11,7 +11,7 @@ from rfd.settings import (
 )
 
 NAME = "Bond Market (High Yield) Risk"
-COLOR = "rgb(5,250,55)"
+COLOR = "rgb(100, 149, 237)"
 
 
 def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
