@@ -50,12 +50,42 @@ def get_proportion_df(df, pfilter=False, threshold=0.0):
         if pfilter:
             if mean >= threshold:
                 new_col = f"% {col}"
-                df_proportions[new_col] = np.where(df[df["Total"]] != 0.0, df[col] / df["Total"], 0.0)o
+                # df_proportions[new_col] = np.where(df[df["Total"]] != 0.0, df[col] / df["Total"], 0.0)
+                df_proportions[new_col] = np.divide(
+                    df[col],
+                    df["Total"],
+                    out=np.zeros_like(df[col]),
+                    where=df["Total"] != 0
+                )
+
         else:
             new_col = f"% {col}"
-            df_proportions[new_col] = np.where(df[df["Total"]] != 0.0, df[col] / df["Total"], 0.0)
+            # df_proportions[new_col] = np.where(df[df["Total"]] != 0.0, df[col] / df["Total"], 0.0)
+            df_proportions[new_col] = np.divide(
+                df[col],
+                df["Total"],
+                out=np.zeros_like(df[col]),
+                where=df["Total"] != 0
+            )
 
     return df_proportions
+
+
+def get_results_df(target_series, df_proportions):
+    """
+    Return the results data frame based on the target series and input proportions
+    :param target_series:
+    :param df_proportions:
+    :return:
+    """
+    df_results = pd.DataFrame()
+    df_proportions.index = df_proportions.index
+    for col in df_proportions.columns:
+        if col.startswith("%"):
+            new_col = col.split("% ")[-1]
+            df_results[new_col] = target_series * df_proportions[col]
+    return df_results
+
 
 
 

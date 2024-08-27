@@ -8,19 +8,20 @@ from rfd.risk_indicators import RISK_COLOR_MAPPING, RISK_TYPES
 
 class Results(object):
 
-    def __init__(self, dates, target_series, df_inputs, ordered_columns):
+    def __init__(self, df, ordered_columns=False):
         """
         A class to store results to standardize plotting
-        :param dates: Series
-        :param target_series: Series
-        :param df_inputs: DataFrame
-        :param ordered_columns: List <str>
+        :param df:
+        :param ordered_columns:
         """
-        self.dates = dates
-        self.target_series = target_series
-        self.ordered_columns = ordered_columns
-        self.df_inputs = df_inputs
-        self.df_inputs[DATE_COL] = dates
+        self.df = df
+        if DATE_COL not in df.columns:
+            self.df[DATE_COL] = df.index
+
+        if not ordered_columns:
+            self.ordered_columns = [col for col in df.columns if col.lower() not in ("date", DATE_COL.lower())]
+        else:
+            self.ordered_columns = ordered_columns
 
         self.color_mapping = dict()
         self._set_color_mapping()
@@ -30,7 +31,7 @@ class Results(object):
         Plot the data
         :return:
         """
-        fig = px.area(self.df_inputs, x=DATE_COL, y=self.ordered_columns, color_discrete_map=self.color_mapping)
+        fig = px.area(self.df, x=DATE_COL, y=self.ordered_columns, color_discrete_map=self.color_mapping)
         if adj_legend:
             fig.update_layout(
                 legend=dict(
@@ -52,7 +53,7 @@ class Results(object):
         Plot the data
         :return:
         """
-        fig = px.area(self.df_inputs, x=DATE_COL, y=self.ordered_columns, color_discrete_map=self.color_mapping)
+        fig = px.area(self.df, x=DATE_COL, y=self.ordered_columns, color_discrete_map=self.color_mapping)
         if show:
             fig.show()
         return fig

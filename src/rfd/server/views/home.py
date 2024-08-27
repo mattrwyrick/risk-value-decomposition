@@ -18,7 +18,7 @@ from rfd.decomposition.results import Results
 from rfd.decomposition.ridge_lasso import (
     get_linear_decomposition,
     get_proportion_df,
-
+    get_results_df
     # get_nonlinear_decomposition,
     # get_nonlinear_proportion_df
 )
@@ -90,15 +90,9 @@ def view(request, cache={}):
     df_fit["Fit Idiosyncratic"] = np.abs(target_series - model.fittedvalues)
 
     df_proportions = get_proportion_df(df=df_risk_inputs, pfilter=False, threshold=0.0)
+    df_results = get_results_df(target_series, df_proportions)
 
-    df_results
-
-    results = Results(
-        dates=date_series,
-        target_series=target_series,
-        df_inputs=df_risk_inputs,
-        ordered_columns=ordered_columns
-    )
+    results = Results(df=df_results)
 
     fig_area = results.area_plot()
     html_area = pio.to_html(fig_area)
