@@ -7,24 +7,44 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from sklearn.preprocessing import PolynomialFeatures
-
-from rfd.risk_indicators import RISK_TYPES, RISK_INDICATOR_MAPPINGS
+from model.ridge import DEFAULT_L1
 
 
-DEFAULT_L1 = 0.90
-DEFAULT_ALPHA = 0.20  # regularization
+PARAMS = {
+    "ridge": {
+    "alpha": 1.25,
+    "L1_wt": 0.90
+    },
+    "lasso": {
+    "alpha": 0.25,
+    "L1_wt": 0.10
+
+    },
+    "elastic": {
+    "alpha": 0.75,
+
+        "L1_wt": 0.50
+    }
+
+}
 
 
-def get_linear_decomposition(target_series, df_inputs, alpha=DEFAULT_ALPHA, L1_wt=DEFAULT_L1):
+DEFAULT_ALPHA = RIDGE["alpha"]
+DEFAULT_L1 = RIDGE["L1_wt"]
+
+
+def get_fit(target_series, df_inputs, alpha=DEFAULT_ALPHA, L1_wt=DEFAULT_L1, model=None):
     """
     Return a linear decomposition of the time series data
     :param target_series:
     :param df_inputs:
     :param alpha:
     :param L1_wt:
+    :param model: ["ridge", "lasso", "elastic"]
     :return:
     """
+    if model and (alpha==DEFAULT_L1 and L1_wt==DEFAULT_L1):
+        alpha =
     model = sm.OLS(target_series, df_inputs).fit_regularized(alpha=alpha, L1_wt=L1_wt)
     return model
 

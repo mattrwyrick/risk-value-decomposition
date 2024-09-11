@@ -3,7 +3,7 @@ import plotly.express as px
 import plotly.io as pio
 
 from rfd.settings import DATE_COL
-from rfd.risk_indicators import RISK_COLOR_MAPPING, RISK_TYPES
+from rfd.risks import RISK_COLOR_MAPPING, RISK_TYPES
 
 
 class Results(object):

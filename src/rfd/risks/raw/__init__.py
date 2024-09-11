@@ -3,19 +3,19 @@ import pandas as pd
 
 from rfd.settings import DEFAULT_YF_START_DATE, DEFAULT_YF_END_DATE, TIMES_CHOICE
 
-from rfd.risk_indicators.baseline import COLOR as BASELINE_COLOR, NAME as BASELINE_NAME, get_risk as get_baseline_risk
+from rfd.risk_indicators.raw.baseline import COLOR as BASELINE_COLOR, NAME as BASELINE_NAME, get_risk as get_baseline_risk
 
-from rfd.risk_indicators.bond_market import COLOR as BOND_MARKET_COLOR, NAME as BOND_MARKET_NAME, get_risk as get_bond_market_risk
-from rfd.risk_indicators.bond_market_high_yield import COLOR as BOND_MARKET_HY_COLOR, NAME as BOND_MARKET_HY_NAME, get_risk as get_bond_market_risk_high_yield
+from rfd.risk_indicators.raw.bond_market import COLOR as BOND_MARKET_COLOR, NAME as BOND_MARKET_NAME, get_risk as get_bond_market_risk
+from rfd.risk_indicators.raw.bond_market_high_yield import COLOR as BOND_MARKET_HY_COLOR, NAME as BOND_MARKET_HY_NAME, get_risk as get_bond_market_risk_high_yield
 
-from rfd.risk_indicators.equity_market import COLOR as EQUITY_MARKET_COLOR, NAME as EQUITY_MARKET_NAME, get_risk as get_equity_market_risk
-from rfd.risk_indicators.market_liquidity import COLOR as MARKET_LIQUIDITY_COLOR, NAME as MARKET_LIQUIDITY_NAME, get_risk as get_market_liquidity_risk
-from rfd.risk_indicators.market_volatility import COLOR as MARKET_VOLATILITY_COLOR, NAME as MARKET_VOLATILITY_NAME, get_risk as get_market_volatility_risk
+from rfd.risk_indicators.raw.equity_market import COLOR as EQUITY_MARKET_COLOR, NAME as EQUITY_MARKET_NAME, get_risk as get_equity_market_risk
+from rfd.risk_indicators.raw.market_liquidity import COLOR as MARKET_LIQUIDITY_COLOR, NAME as MARKET_LIQUIDITY_NAME, get_risk as get_market_liquidity_risk
+from rfd.risk_indicators.raw.market_volatility import COLOR as MARKET_VOLATILITY_COLOR, NAME as MARKET_VOLATILITY_NAME, get_risk as get_market_volatility_risk
 
-from rfd.risk_indicators.inflation import COLOR as INFLATION_COLOR, NAME as INFLATION_NAME, get_risk as get_inflation_risk
-from rfd.risk_indicators.interest_rate_long_term import COLOR as INTEREST_RATE_LT_COLOR, NAME as INTEREST_RATE_LT_NAME, get_risk as get_interest_rate_long_term_risk
-from rfd.risk_indicators.interest_rate_medium_term import COLOR as INTEREST_RATE_MT_COLOR, NAME as INTEREST_RATE_MT_NAME, get_risk as get_interest_rate_medium_term_risk
-from rfd.risk_indicators.interest_rate_short_term import COLOR as INTEREST_RATE_ST_COLOR, NAME as INTEREST_RATE_ST_NAME, get_risk as get_interest_rate_short_term_risk
+from rfd.risk_indicators.raw.inflation import COLOR as INFLATION_COLOR, NAME as INFLATION_NAME, get_risk as get_inflation_risk
+from rfd.risk_indicators.raw.interest_rate_long_term import COLOR as INTEREST_RATE_LT_COLOR, NAME as INTEREST_RATE_LT_NAME, get_risk as get_interest_rate_long_term_risk
+from rfd.risk_indicators.raw.interest_rate_medium_term import COLOR as INTEREST_RATE_MT_COLOR, NAME as INTEREST_RATE_MT_NAME, get_risk as get_interest_rate_medium_term_risk
+from rfd.risk_indicators.raw.interest_rate_short_term import COLOR as INTEREST_RATE_ST_COLOR, NAME as INTEREST_RATE_ST_NAME, get_risk as get_interest_rate_short_term_risk
 
 
 RISK_TYPES = [
