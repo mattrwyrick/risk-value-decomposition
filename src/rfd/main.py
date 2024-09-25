@@ -7,7 +7,7 @@ from rfd.settings import get_yf_date, DEFAULT_YF_START_DATE, DEFAULT_YF_END_DATE
 
 from rfd.tools import get_asset_data
 
-from rfd.risk_indicators import RISK_TYPES, get_risk_inputs_df
+from rfd.risks import RISK_TYPES, get_risk_inputs_df
 
 from rfd.decomposition.results import Results
 

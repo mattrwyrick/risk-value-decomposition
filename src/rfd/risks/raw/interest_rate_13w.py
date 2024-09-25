@@ -10,7 +10,7 @@ from rfd.settings import (
     TIMES_CHOICE
 )
 
-NAME = "Interest Rate (Short Term) Risk"
+NAME = "Interest Rate 13w Risk"
 COLOR = "rgb(255, 69, 0)"
 
 

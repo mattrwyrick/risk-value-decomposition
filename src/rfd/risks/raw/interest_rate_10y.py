@@ -10,8 +10,8 @@ from rfd.settings import (
     TIMES_CHOICE
 )
 
-NAME = "Interest Rate 5y Risk"
-COLOR = "rgb(255, 140, 0)"
+NAME = "Interest Rate 10y Risk"
+COLOR = "rgb(255, 165, 0)"
 
 
 def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
@@ -23,7 +23,7 @@ def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_ch
     :param include_date: bool
     :return: np.Array
     """
-    ticker = "^FVX"  # 5 year treasury bill yield
+    ticker = "^TNX"  # 10 year treasury bill yield
 
     company = yf.Ticker(ticker)
     company_name = company.info['longName']

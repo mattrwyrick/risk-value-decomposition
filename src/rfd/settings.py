@@ -2,6 +2,9 @@
 import datetime as dt
 
 
+SEED = 25193804
+
+
 TIMES_MAPPING = {
     "Close": lambda x: x["Close"],
     "Open": lambda x: x["Open"],

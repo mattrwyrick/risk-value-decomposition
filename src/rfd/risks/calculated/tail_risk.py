@@ -1,3 +1,16 @@
+from scipy.stats import skew, kurtosis
+
+# Calculate daily returns of the ETF
+etf_returns = etf_data['Close'].pct_change().dropna()
+
+# Calculate skewness and kurtosis
+skewness = skew(etf_returns)
+kurt = kurtosis(etf_returns, fisher=False)  # Fisher=False for Pearson Kurtosis
+
+print(f"Skewness: {skewness}")
+print(f"Kurtosis: {kurt}")
+
+
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -10,8 +23,8 @@ from rfd.settings import (
     TIMES_CHOICE
 )
 
-NAME = "Interest Rate 5y Risk"
-COLOR = "rgb(255, 140, 0)"
+NAME = "Idiosyncratic"
+COLOR = "rgb(255, 99, 71)"
 
 
 def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
@@ -23,17 +36,4 @@ def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_ch
     :param include_date: bool
     :return: np.Array
     """
-    ticker = "^FVX"  # 5 year treasury bill yield
-
-    company = yf.Ticker(ticker)
-    company_name = company.info['longName']
-
-    df = pd.DataFrame()
-    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
-    df.index = df_tmp.index
-    if include_date:
-        df[DATE_COL] = df.index
-    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
-    if normalize:
-        df[NAME] = df[NAME] / df[NAME].mean()
-    return df
+    return None
