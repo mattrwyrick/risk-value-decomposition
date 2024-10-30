@@ -16,7 +16,7 @@ from rfd.settings import (
     TIMES_CHOICE
 )
 
-from rfd.decomposition.pca import get_pca_components
+from rfd.tools.decomposition.pca import get_pca_components
 
 NAME = "Inflation Risk"
 COLOR = "rgb(200, 200, 150)"

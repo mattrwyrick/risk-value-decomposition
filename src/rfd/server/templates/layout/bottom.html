@@ -10,7 +10,6 @@
     </div>
 </div>
 
-
 <!-- Bootstrap JS and jQuery -->
 <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
@@ -18,10 +17,13 @@
 
 <!-- JavaScript for Redirect -->
 <script>
-    document.getElementById('decompositionLink').addEventListener('click', function() {
-        window.location.href = '/decomposition';
+    $(document).ready(function() {
+        $('#dropdownMenuButton').on('click', function() {
+            window.location.href = '/decomposition';  // Redirect to decomposition when selected
+        });
     });
 </script>
+
 <!-- Plotly JS -->
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script>

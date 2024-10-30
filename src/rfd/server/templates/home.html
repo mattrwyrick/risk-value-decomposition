@@ -1,24 +1,22 @@
-
-{% extends '/layout/top.html' %}
+{% include 'layout/top.html' %}
 {% block content %}
 
 <!-- Jumbotron Section -->
 <div class="jumbotron text-center">
-    <h1 class="display-4">Welcome to the Risk Factor Decomposition App</h1>
-    <p class="lead">Use this application to analyze the risk factor decomposition of stocks.</p>
-    <hr class="my-4">
-    <p>Get started by selecting an option below:</p>
+    <h1 class="display-4">Portfolio Analysis Assistant</h1>
+    <p>Select a tool analyze with.</p>
 
-    <!-- Dropdown for Navigation -->
     <div class="dropdown">
-        <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            Select Action
+        <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown"
+                aria-haspopup="true" aria-expanded="false">
+            Select
         </button>
         <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-            <a class="dropdown-item" id="decompositionLink">Decomposition</a>
+            <a class="dropdown-item" href="/decomposition">Decomposition</a>
         </div>
     </div>
+
 </div>
 
 {% endblock %}
-{% extends '/layout/bottom.html' %}
+{% include 'layout/bottom.html' %}

@@ -7,18 +7,18 @@ from rfd.server.views.decomposition import view as decomposition_view
 
 HOST = "127.0.0.1"
 PORT = 5000
-APP = Flask(__name__)
+app = Flask(__name__)
 
 
-@APP.route('/', methods=["GET", "POST"])
+@app.route('/', methods=["GET", "POST"])
 def index():
     return home_view(request, {"title": "Risk Factor Decomposition"})
 
 
-@APP.route('/decomposition', methods=["GET", "POST"])
-def index():
-    return home_view(request, {"title": "Risk Factor Decomposition"})
+@app.route('/decomposition', methods=["GET", "POST"])
+def decomposition():
+    return decomposition_view(request, {"title": "Risk Factor Decomposition"})
 
 
 if __name__ == '__main__':
-    APP.run(host=HOST, port=PORT, debug=True)
+    app.run(host=HOST, port=PORT, debug=True)
