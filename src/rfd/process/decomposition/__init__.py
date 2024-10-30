@@ -1,0 +1,3 @@
+
+from rfd.process.decomposition.raw_risks import get_decomposition_df as get_raw_risks_decomposition_df
+from rfd.process.decomposition.structured_risks import get_decomposition_df as get_structured_risks_decomposition_df

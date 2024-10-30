@@ -11,7 +11,7 @@ from rfd.settings import (
 )
 
 NAME = "Interest Rate 5y Risk"
-COLOR = "rgb(255, 140, 0)"
+COLOR = "rgb(160, 110, 110)"
 
 
 def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):

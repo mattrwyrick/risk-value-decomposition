@@ -35,11 +35,11 @@ RISK_TYPES = [
 ]
 
 
-RISK_INDICATOR_MAPPINGS = {
+RISK_INDICATOR_MAPPING = {
     BASELINE_NAME: get_baseline_risk,
 
     BOND_MARKET_NAME: get_bond_market_risk,
-    BOND_MARKET_HY_NAME: get_bond_market_risk_high_yield,
+    BOND_MARKET_HY_NAME: get_bond_market_hy_risk,
 
     EQUITY_MARKET_NAME: get_equity_market_risk,
     MARKET_LIQUIDITY_NAME: get_market_liquidity_risk,
@@ -98,11 +98,11 @@ def get_risk_inputs_df(
     """
     df_risk_inputs = pd.DataFrame()
     for risk_type in risk_types:
-        if risk_type in RISK_INDICATOR_MAPPINGS:
+        if risk_type in RISK_INDICATOR_MAPPING:
             if risk_type == BASELINE_NAME and not include_const:
                 continue
 
-            df_risk = RISK_INDICATOR_MAPPINGS[risk_type](
+            df_risk = RISK_INDICATOR_MAPPING[risk_type](
                 yf_start=yf_start,
                 yf_end=yf_end,
                 time_choice=time_choice,
@@ -115,9 +115,7 @@ def get_risk_inputs_df(
     if fill_missing_dates:
         date_range = pd.date_range(start=yf_start, end=yf_end)
         df_risk_inputs = df_risk_inputs.reindex(date_range)
-        # df_risk_inputs = df_risk_inputs.ffill(method=fill_missing_method)
         df_risk_inputs = df_risk_inputs.ffill()
-
 
     return df_risk_inputs
 

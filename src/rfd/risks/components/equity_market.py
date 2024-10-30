@@ -18,7 +18,7 @@ from rfd.settings import (
 from rfd.decomposition.pca import get_pca_components
 
 NAME = "Equity Market Exposure"
-COLOR = "rgb(0, 0, 0)"
+COLOR = "rgb(150, 200, 150)"
 
 RISKS = [EQUITY_MARKET_NAME]
 

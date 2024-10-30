@@ -23,7 +23,7 @@ from rfd.decomposition.pca import get_pca_components
 
 
 NAME = "Credit and Bond Market Risk"
-COLOR = "rgb(0, 0, 0)"
+COLOR = "rgb(200, 200, 200)"
 
 RISKS = [BOND_MARKET_NAME, BOND_MARKET_HY_NAME]
 

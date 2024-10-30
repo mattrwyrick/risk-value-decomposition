@@ -6,15 +6,19 @@ import plotly.express as px
 
 from flask import render_template
 
-
 from rfd.settings import get_yf_date, DEFAULT_YF_START_DATE, DEFAULT_YF_END_DATE, TIMES_CHOICE, DATE_COL
 
 from rfd.tools import get_asset_data
-from rfd.process.decomposition import
+
+from rfd.process.decomposition import (
+    get_raw_risks_decomposition_df,
+    get_structured_risks_decomposition_df
+)
+
+from rfd.tools.plot.area import get_plot
 
 
-
-TEMPLATE = "./home.html"
+TEMPLATE = "./decomposition.html"
 FILL_MISSING_DATES = True
 FILL_MISSING_METHOD = "ffill"  # forward fill
 
@@ -41,48 +45,34 @@ def view(request, cache={}):
     )
 
     if FILL_MISSING_DATES:
-        date_range = pd.date_range(start=end_date, end=start_date)  # plz fix (later)
+        date_range = pd.date_range(start=start_date, end=end_date)  # plz fix (later)
         df_asset = df_asset.reindex(date_range)
         df_asset = df_asset.fillna(method=FILL_MISSING_METHOD)
 
-    target_series = df_asset[ticker]
+    asset_series = df_asset[ticker]
     date_series = df_asset[DATE_COL]
 
-    df_risk_inputs = get_risk_inputs_df(
-        risk_types=RISK_TYPES,
-        yf_start=end_date,
-        yf_end=start_date,
+    df_results = get_structured_risks_decomposition_df(
+        asset_series,
+        yf_start=start_date,
+        yf_end=end_date,
         time_choice=time_choice,
         normalize=normalize,
+        include_const=True,
         include_date=False,
-        include_const=add_constant,
-        fill_missing_dates=FILL_MISSING_DATES,
-        fill_missing_method=FILL_MISSING_METHOD
+        fill_missing_dates=False,
+        fill_missing_method="ffill"
+
     )
 
-    model = get_linear_decomposition(
-        target_series=target_series,
-        df_inputs=df_risk_inputs,
-        alpha=alpha,
-        L1_wt=l1_wt,
-    )
+    if normalize:
+        df_results = df_results * asset_series
 
-    df_fit = pd.DataFrame()
-    df_fit["Date"] = df_asset["Date"]
+    df_results["Date"] = df_asset["Date"]
 
-    param_values = np.abs(list(model.params))
-    param_names = model.model.exog_names
 
-    for i, col in enumerate(param_names):  # plz fix - add statistical tests to filter inputs prior
-        fit_col = f"Fit {col}"
-        df_fit[fit_col] = df_risk_inputs[col] * param_values[i]
 
-    df_fit["Fit Idiosyncratic"] = np.abs(target_series - model.fittedvalues)
 
-    df_proportions = get_proportion_df(df=df_risk_inputs, pfilter=False, threshold=0.0)
-    df_results = get_results_df(target_series, df_proportions)
-
-    results = Results(df=df_results)
 
     fig_area = results.area_plot()
     html_area = pio.to_html(fig_area)
@@ -119,6 +109,15 @@ def get_values_from_request(request):
     normalize = False if "normalize" in values and values["normalize"] == "No" else True
 
     try:
+        start_date = values["start_date"].strip() if "start_date" in values else DEFAULT_YF_START_DATE
+        if start_date:
+            ymd = [int(p.strip()) for p in start_date.split("-")]  # MM/DD/YYYY
+            dtime = dt.datetime(year=ymd[0], month=ymd[1], day=ymd[2])
+            start_date = get_yf_date(dtime)
+    except Exception as e:
+        start_date = None
+
+    try:
         end_date = values["end_date"].strip() if "end_date" in values else DEFAULT_YF_END_DATE
         if end_date:
             ymd = [int(p.strip()) for p in end_date.split("-")]  # MM/DD/YYYY
@@ -127,14 +126,9 @@ def get_values_from_request(request):
     except Exception as e:
         end_date = None
 
-    try:
-        start_date = values["start_date"].strip() if "start_date" in values else DEFAULT_YF_START_DATE
-        if start_date:
-            ymd = [int(p.strip()) for p in start_date.split("-")]  # MM/DD/YYYY
-            dtime = dt.datetime(year=ymd[0], month=ymd[1], day=ymd[2])
-            start_date = get_yf_date(dtime)
-    except Exception as e:
-        start_date = None
+    if start_date is not None and end_date is not None:
+        start_date = start_date if start_date < end_date else end_date
+        end_date = end_date if start_date < end_date else start_date
 
     try:
         l1_wt = float(values["l1_wt"].strip()) if "l1_wt" in values else None
@@ -146,7 +140,7 @@ def get_values_from_request(request):
     except:
         alpha = None
 
-    return ticker, end_date, start_date, time_choice, normalize, l1_wt, alpha
+    return ticker, start_date, end_date, time_choice, normalize, l1_wt, alpha
 
 
 def add_to_cache(cache, ticker=None, end_date=None, start_date=None, time_choice=None,

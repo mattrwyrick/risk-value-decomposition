@@ -1,0 +1,2257 @@
++++++ ./src/rfd/results.py +++++
+import numpy as np
+import plotly.express as px
+import plotly.io as pio
+
+from rfd.settings import DATE_COL
+from rfd.risks import RISK_COLOR_MAPPING, RISK_TYPES
+
+
+class Results(object):
+
+    def __init__(self, df, ordered_columns=False):
+        """
+        A class to store results to standardize plotting
+        :param df:
+        :param ordered_columns:
+        """
+        self.df = df
+        if DATE_COL not in df.columns:
+            self.df[DATE_COL] = df.index
+
+        if not ordered_columns:
+            self.ordered_columns = [col for col in df.columns if col.lower() not in ("date", DATE_COL.lower())]
+        else:
+            self.ordered_columns = ordered_columns
+
+        self.color_mapping = dict()
+        self._set_color_mapping()
+
+    def area_plot(self, show=False, save_tmp=False, adj_legend=True):
+        """
+        Plot the data
+        :return:
+        """
+        fig = px.area(self.df, x=DATE_COL, y=self.ordered_columns, color_discrete_map=self.color_mapping)
+        if adj_legend:
+            fig.update_layout(
+                legend=dict(
+                    orientation="h",
+                    yanchor="top",
+                    y=-0.2,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
+        if show:
+            fig.show()
+        if save_tmp:
+            pio.write_html(fig, file='tmp_chart.html', auto_open=True)
+        return fig
+
+    def line_plot(self, show=True):
+        """
+        Plot the data
+        :return:
+        """
+        fig = px.area(self.df, x=DATE_COL, y=self.ordered_columns, color_discrete_map=self.color_mapping)
+        if show:
+            fig.show()
+        return fig
+
+    def pie_plot(self, show=True):
+        """
+        Plot a pie chart
+        :param show:
+        :return:
+        """
+        pass
+
+    def _set_color_mapping(self):
+        """
+        Create the color mapping
+        :return:
+        """
+        risks_with_colors = list(set(self.ordered_columns).intersection(set(RISK_TYPES)))
+        risks_without_colors = [risk for risk in self.ordered_columns if risk not in risks_with_colors]
+
+        for risk in risks_with_colors:
+            self.color_mapping[risk] = RISK_COLOR_MAPPING[risk]
+
+        grayscale_values = np.linspace(0, 255, len(risks_without_colors), dtype=int)
+        for i, risk in enumerate(risks_without_colors):
+            rgb = grayscale_values[i]
+            self.color_mapping[risk] = f"rgb({rgb},{rgb},{rgb})"
+
+        return self.color_mapping
+
++++++ ./src/rfd/tools.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE,
+    DATE_COL
+)
+
+
+def get_asset_data(ticker, yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True):
+    """
+    Get the asset data from yfinance
+    :param ticker:
+    :param yf_start:
+    :param yf_end:
+    :param time_choice:
+    :param normalize:
+    :return:
+    """
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_end, end=yf_start)  # plz fix (later)
+    df.index = df_tmp.index
+    df[DATE_COL] = df.index
+    df[ticker] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[ticker] = df[ticker] / df[ticker].mean()
+    return df
+
+
+def get_proportion_df(df_fit):
+    """
+    Return df that contains the proportions of each params influence
+    :param df_fit:
+    :return:
+    """
+    df_proportions = pd.DataFrame()
+    df_proportions["Date"] = df_fit["Date"]
+
+
+
+
+
++++++ ./src/rfd/settings.py +++++
+
+import datetime as dt
+
+
+SEED = 25193804
+
+
+TIMES_MAPPING = {
+    "Close": lambda x: x["Close"],
+    "Open": lambda x: x["Open"],
+    "Mean": lambda x: (x["Close"] + x["Open"]) / 2.0
+}
+
+TIMES_CHOICE = "Mean"
+
+DATE_COL = "Date"
+
+
+def get_yf_date(dtime):
+    """
+    Return the date format for yfinance
+    :param dtime:
+    :return:
+    """
+    year = dtime.year
+    month = f"0{dtime.month}" if dtime.month < 10 else dtime.month
+    day = f"0{dtime.day}" if dtime.day < 10 else dtime.day
+    return f"{year}-{month}-{day}"
+
+
+DEFAULT_YEARS_BACK = 3
+
+DEFAULT_DT_END_DATE = dt.datetime.today()
+DEFAULT_YF_END_DATE = get_yf_date(DEFAULT_DT_END_DATE)
+
+DEFAULT_DT_START_DATE = DEFAULT_DT_END_DATE - dt.timedelta(365 * DEFAULT_YEARS_BACK)  # 3 years
+DEFAULT_YF_START_DATE = get_yf_date(DEFAULT_DT_START_DATE)
+
+
+
+
++++++ ./src/rfd/main.py +++++
+
+import numpy as np
+import pandas as pd
+import yfinance as yf
+
+from rfd.settings import get_yf_date, DEFAULT_YF_START_DATE, DEFAULT_YF_END_DATE, TIMES_CHOICE, DATE_COL
+
+from rfd.tools import get_asset_data
+
+from rfd.risks import RISK_TYPES, get_risk_inputs_df
+
+from rfd.decomposition.results import Results
+
+from rfd.decomposition.ridge_lasso import (
+    get_linear_decomposition,
+    get_linear_proportion_df,
+
+    get_nonlinear_decomposition,
+    get_nonlinear_proportion_df
+)
+
+
+TICKER = "JPM"
+
+
+def main(ticker=TICKER):
+    """
+    Run a decomposition
+    :return:
+    """
+    time_choice = TIMES_CHOICE  # Open, Close, Mean
+    normalize = True
+
+    add_constant = True
+    L1_wt = 0.75
+    alpha = 0.05
+
+    df_asset = get_asset_data(
+        ticker=ticker,
+        yf_start=DEFAULT_YF_START_DATE,
+        yf_end=DEFAULT_YF_END_DATE
+    )
+
+    target_series = df_asset[ticker]
+    date_series = df_asset[DATE_COL]
+
+    df_risk_inputs = get_risk_inputs_df(
+        risk_types=RISK_TYPES,
+        yf_start=DEFAULT_YF_START_DATE,
+        yf_end=DEFAULT_YF_END_DATE,
+        time_choice=time_choice,
+        normalize=normalize,
+        include_date=False
+    )
+
+    model = get_linear_decomposition(
+        target_series=target_series,
+        df_inputs=df_risk_inputs,
+        add_constant=add_constant,
+        alpha=alpha,
+        L1_wt=L1_wt,
+    )
+
+    param_values = list(model.params)
+    param_names = model.model.exog_names
+    if param_names[0] == "const":
+        param_names[0] = "Idiosyncratic"
+        df_risk_inputs["Idiosyncratic"] = np.mean(target_series) * param_values[0]
+
+    df_risk_inputs, ordered_columns = get_linear_proportion_df(
+        df_results=df_risk_inputs,
+        param_names=param_names,
+        param_values=param_values
+    )
+
+    results = Results(
+        dates=date_series,
+        target_series=target_series,
+        df_inputs=df_risk_inputs,
+        ordered_columns=ordered_columns
+    )
+
+    fig = results.area_plot(save_tmp=True)
+
+    import plotly.express as px
+    import plotly.io as pio
+    import time
+
+    time.sleep(2)
+    fig2 = px.line(target_series)
+    fig2.update_yaxes(range=[0, target_series.max()])
+    pio.write_html(fig2, file='tmp_chart.html', auto_open=True)
+
+    a = 1
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+
++++++ ./src/rfd/server/__init__.py +++++
+
+
++++++ ./src/rfd/server/app.py +++++
+
+from flask import Flask, render_template, request, redirect, url_for
+
+from rfd.server.views.home import view as home_view
+
+
+HOST = "127.0.0.1"
+PORT = 5000
+APP = Flask(__name__)
+
+
+@APP.route('/', methods=["GET", "POST"])
+def index():
+    return home_view(request, {"title": "Risk Decomp"})
+
+
+if __name__ == '__main__':
+    APP.run(host=HOST, port=PORT, debug=True)
+
+
++++++ ./src/rfd/server/views/home.py +++++
+import numpy as np
+import pandas as pd
+import datetime as dt
+import plotly.io as pio
+import plotly.express as px
+
+from flask import render_template
+
+
+from rfd.settings import get_yf_date, DEFAULT_YF_START_DATE, DEFAULT_YF_END_DATE, TIMES_CHOICE, DATE_COL
+
+from rfd.tools import get_asset_data
+
+from rfd.risks import RISK_TYPES, RISK_INDICATOR_MAPPINGS, get_risk_inputs_df
+
+from rfd.decomposition.results import Results
+
+from rfd.decomposition.ridge_lasso import (
+    get_linear_decomposition,
+    get_proportion_df,
+    get_results_df
+    # get_nonlinear_decomposition,
+    # get_nonlinear_proportion_df
+)
+
+
+TEMPLATE = "./home.html"
+FILL_MISSING_DATES = True
+FILL_MISSING_METHOD = "ffill"  # forward fill
+
+
+def view(request, cache={}):
+    """
+    Create the home page
+    :param request:
+    :param cache: dict
+    :return:
+    """
+    ticker, end_date, start_date, time_choice, normalize, l1_wt, alpha = get_values_from_request(request)
+    cache = add_to_cache(cache, ticker, end_date, start_date, time_choice, normalize, l1_wt, alpha)
+
+    if not (ticker and end_date and start_date and time_choice and l1_wt and alpha):
+        return render_template(TEMPLATE, **cache)
+
+    add_constant = True
+
+    df_asset = get_asset_data(
+        ticker=ticker,
+        yf_start=start_date,
+        yf_end=end_date
+    )
+
+    if FILL_MISSING_DATES:
+        date_range = pd.date_range(start=end_date, end=start_date)  # plz fix (later)
+        df_asset = df_asset.reindex(date_range)
+        df_asset = df_asset.fillna(method=FILL_MISSING_METHOD)
+
+    target_series = df_asset[ticker]
+    date_series = df_asset[DATE_COL]
+
+    df_risk_inputs = get_risk_inputs_df(
+        risk_types=RISK_TYPES,
+        yf_start=end_date,
+        yf_end=start_date,
+        time_choice=time_choice,
+        normalize=normalize,
+        include_date=False,
+        include_const=add_constant,
+        fill_missing_dates=FILL_MISSING_DATES,
+        fill_missing_method=FILL_MISSING_METHOD
+    )
+
+    model = get_linear_decomposition(
+        target_series=target_series,
+        df_inputs=df_risk_inputs,
+        alpha=alpha,
+        L1_wt=l1_wt,
+    )
+
+    df_fit = pd.DataFrame()
+    df_fit["Date"] = df_asset["Date"]
+
+    param_values = np.abs(list(model.params))
+    param_names = model.model.exog_names
+
+    for i, col in enumerate(param_names):  # plz fix - add statistical tests to filter inputs prior
+        fit_col = f"Fit {col}"
+        df_fit[fit_col] = df_risk_inputs[col] * param_values[i]
+
+    df_fit["Fit Idiosyncratic"] = np.abs(target_series - model.fittedvalues)
+
+    df_proportions = get_proportion_df(df=df_risk_inputs, pfilter=False, threshold=0.0)
+    df_results = get_results_df(target_series, df_proportions)
+
+    results = Results(df=df_results)
+
+    fig_area = results.area_plot()
+    html_area = pio.to_html(fig_area)
+
+    fig_line = px.line(target_series)
+    fig_line.update_layout(
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        )
+    )
+    fig_line.update_yaxes(range=[0, target_series.max() + (0.05 * np.mean(target_series))])
+    html_line = pio.to_html(fig_line)
+
+    cache["area_chart"] = html_area
+    cache["line_chart"] = html_line
+
+    return render_template(TEMPLATE, **cache)
+
+
+def get_values_from_request(request):
+    """
+    Get the values from the request
+    :param request:
+    :return:
+    """
+    values = request.values
+
+    ticker = values["ticker"].strip() if "ticker" in values else None
+    time_choice = values["time_choice"].strip() if "time_choice" in values else None
+    normalize = False if "normalize" in values and values["normalize"] == "No" else True
+
+    try:
+        end_date = values["end_date"].strip() if "end_date" in values else DEFAULT_YF_END_DATE
+        if end_date:
+            ymd = [int(p.strip()) for p in end_date.split("-")]  # MM/DD/YYYY
+            dtime = dt.datetime(year=ymd[0], month=ymd[1], day=ymd[2])
+            end_date = get_yf_date(dtime)
+    except Exception as e:
+        end_date = None
+
+    try:
+        start_date = values["start_date"].strip() if "start_date" in values else DEFAULT_YF_START_DATE
+        if start_date:
+            ymd = [int(p.strip()) for p in start_date.split("-")]  # MM/DD/YYYY
+            dtime = dt.datetime(year=ymd[0], month=ymd[1], day=ymd[2])
+            start_date = get_yf_date(dtime)
+    except Exception as e:
+        start_date = None
+
+    try:
+        l1_wt = float(values["l1_wt"].strip()) if "l1_wt" in values else None
+    except:
+        l1_wt = None
+
+    try:
+        alpha = float(values["alpha"].strip()) if "alpha" in values else None
+    except:
+        alpha = None
+
+    return ticker, end_date, start_date, time_choice, normalize, l1_wt, alpha
+
+
+def add_to_cache(cache, ticker=None, end_date=None, start_date=None, time_choice=None,
+                 normalize=None, l1_wt=None, alpha=None):
+    """
+    Add values to the cache
+    :param cache:
+    :param ticker:
+    :param end_date:
+    :param start_date:
+    :param time_choice:
+    :param normalize:
+    :param l1_wt:
+    :param alpha:
+    :return:
+    """
+    if ticker:
+        cache["ticker"] = ticker
+    if end_date:
+        cache["end_date"] = end_date
+    if start_date:
+        cache["start_date"] = start_date
+    if time_choice:
+        cache["time_choice"] = time_choice
+
+    if normalize:
+        cache["normalize"] = "Yes"
+    else:
+        cache["normalize"] = "No"
+
+    if l1_wt:
+        cache["l1_wt"] = l1_wt
+    if alpha:
+        cache["alpha"] = alpha
+    return cache
+
+
++++++ ./src/rfd/server/views/__init__.py +++++
+
+
++++++ ./src/rfd/transforms/__init__.py +++++
+from sklearn.preprocessing import PolynomialFeatures
+
+
+
+
+
+
+
+
++++++ ./src/rfd/risks/idiosyncratic.py +++++
+
+
++++++ ./src/rfd/risks/__init__.py +++++
+
+
++++++ ./src/rfd/risks/components/bond_market.py +++++
+import numpy as np
+import pandas as pd
+
+from rfd.risks.raw import (
+    BOND_MARKET_NAME,
+    BOND_MARKET_COLOR,
+    get_bond_market_risk,
+
+    BOND_MARKET_HY_NAME,
+    BOND_MARKET_HY_COLOR,
+    get_bond_market_hy_risk
+)
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+from rfd.decomposition.pca import get_pca_components
+
+
+NAME = "Credit and Bond Market Risk"
+COLOR = "rgb(0, 0, 0)"
+
+RISKS = [BOND_MARKET_NAME, BOND_MARKET_HY_NAME]
+
+DATA_MAPPINGS = {
+    BOND_MARKET_NAME: get_bond_market_risk,
+    BOND_MARKET_HY_NAME: get_bond_market_hy_risk
+}
+
+COLOR_MAPPINGS = {
+    BOND_MARKET_NAME: BOND_MARKET_COLOR,
+    BOND_MARKET_HY_NAME: BOND_MARKET_HY_COLOR
+}
+
+
+def get_risk(
+        yf_start=DEFAULT_YF_START_DATE,
+        yf_end=DEFAULT_YF_END_DATE,
+        time_choice=TIMES_CHOICE,
+        normalize=True,
+        include_date=False,
+        include_meta=True
+):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start:
+    :param yf_end:
+    :param time_choice:
+    :param normalize:
+    :param include_date:
+    :param include_meta:
+    :return:
+    """
+    df = pd.DataFrame()
+
+    for risk in RISKS:
+        df[risk] = DATA_MAPPINGS[risk](
+            yf_start=yf_start,
+            yf_end=yf_end,
+            time_choice=time_choice,
+            normalize=normalize,
+            include_date=include_date
+        )
+
+    component, loadings, explained_variance = get_pca_components(df, n_components=1, include_meta=True)
+    component.index = df.index
+
+    if include_meta:
+        return component, loadings, explained_variance
+    else:
+        return component
+
+
+"""
+2. Bond Market and Credit Risk
+These variables represent different aspects of the bond market, including investment-grade and high-yield bonds, as well as credit risk (spreads between corporate and Treasury yields).
+
+Bond Market: AGG – iShares U.S. Aggregate Bond ETF, representing the investment-grade bond market.
+Bond Market (High-Yield): JNK – BlackRock High-Yield Bond ETF, representing high-risk, high-yield corporate bonds.
+Credit Spread: Calculated as the difference between corporate bond yields and risk-free Treasury yields, indicating the market’s perception of credit risk.
+Group Name: Credit and Bond Market Risk
+
+Description: This group focuses on bond market performance and the risk associated with corporate credit. It includes investment-grade bonds, high-yield bonds, and the spread that reflects the premium for taking on credit risk."""
+
+
++++++ ./src/rfd/risks/components/equity_market.py +++++
+import numpy as np
+import pandas as pd
+
+from rfd.risks.raw import (
+    EQUITY_MARKET_NAME,
+    EQUITY_MARKET_COLOR,
+    get_equity_market_risk
+)
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+from rfd.decomposition.pca import get_pca_components
+
+NAME = "Equity Market Exposure"
+COLOR = "rgb(0, 0, 0)"
+
+RISKS = [EQUITY_MARKET_NAME]
+
+DATA_MAPPINGS = {
+    EQUITY_MARKET_NAME: get_equity_market_risk
+}
+
+COLOR_MAPPINGS = {
+    EQUITY_MARKET_NAME: EQUITY_MARKET_COLOR
+}
+
+
+def get_risk(
+        yf_start=DEFAULT_YF_START_DATE,
+        yf_end=DEFAULT_YF_END_DATE,
+        time_choice=TIMES_CHOICE,
+        normalize=True,
+        include_date=False,
+        include_meta=True
+):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start:
+    :param yf_end:
+    :param time_choice:
+    :param normalize:
+    :param include_date:
+    :param include_meta:
+    :return:
+    """
+    df = pd.DataFrame()
+
+    for risk in RISKS:
+        df[risk] = DATA_MAPPINGS[risk](
+            yf_start=yf_start,
+            yf_end=yf_end,
+            time_choice=time_choice,
+            normalize=normalize,
+            include_date=include_date
+        )
+
+    component, loadings, explained_variance = get_pca_components(df, n_components=1, include_meta=True)
+    component.index = df.index
+
+    if include_meta:
+        return component, loadings, explained_variance
+    else:
+        return component
+
+
+"""
+3. Equity Market and Systematic Risk
+This category represents equity market performance and the systematic risk exposure of the portfolio.
+
+Equity Market: ^GSPC – S&P 500 Index, representing the performance of the U.S. equity market.
+Beta: Calculated as the sensitivity of an asset's returns to market returns (systematic risk).
+Group Name: Equity Market Exposure
+
+Description: This group captures the stock market’s performance and the systematic risk (beta) of the portfolio relative to the market. The equity market index and beta are key to understanding how the portfolio moves in relation to broader stock market trends.
+
+
+"""
+
++++++ ./src/rfd/risks/components/market_volatility.py +++++
+
+
+
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+
+from rfd.risks.raw import (
+    MARKET_VOLATILITY_NAME,
+    MARKET_VOLATILITY_COLOR,
+    get_market_volatility_risk
+)
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+from rfd.decomposition.pca import get_pca_components
+
+
+NAME = "Volatility and Tail Risk"
+COLOR = "rgb(0, 0, 0)"
+
+RISKS = [MARKET_VOLATILITY_NAME]
+
+DATA_MAPPINGS = {
+    MARKET_VOLATILITY_NAME: get_market_volatility_risk
+}
+
+COLOR_MAPPINGS = {
+    MARKET_VOLATILITY_NAME: MARKET_VOLATILITY_COLOR
+}
+
+
+def get_risk(
+        yf_start=DEFAULT_YF_START_DATE,
+        yf_end=DEFAULT_YF_END_DATE,
+        time_choice=TIMES_CHOICE,
+        normalize=True,
+        include_date=False,
+        include_meta=True
+):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start:
+    :param yf_end:
+    :param time_choice:
+    :param normalize:
+    :param include_date:
+    :param include_meta:
+    :return:
+    """
+    df = pd.DataFrame()
+
+    for risk in RISKS:
+        df[risk] = DATA_MAPPINGS[risk](
+            yf_start=yf_start,
+            yf_end=yf_end,
+            time_choice=time_choice,
+            normalize=normalize,
+            include_date=include_date
+        )
+
+    component, loadings, explained_variance = get_pca_components(df, n_components=1, include_meta=True)
+    component.index = df.index
+
+    if include_meta:
+        return component, loadings, explained_variance
+    else:
+        return component
+
+"""
+6. Market Volatility and Tail Risk
+This category captures volatility and tail risks, which measure the likelihood of extreme market events and deviations from normal market behavior.
+
+Market Volatility: ^VIX – CBOE Vix Index, representing expected stock market volatility (often called the "fear index").
+Tail Risk (Skew): Measures the asymmetry of the return distribution, indicating the likelihood of extreme negative events.
+Tail Risk (Kurtosis): Measures the fat-tailedness of return distributions, indicating the likelihood of extreme deviations from the mean.
+Group Name: Volatility and Tail Risk
+
+Description: This group captures market uncertainty, extreme risk events, and the overall level of volatility. The VIX measures expected market volatility, while skewness and kurtosis capture the likelihood of rare, extreme events.
+"""
+
++++++ ./src/rfd/risks/components/market_liquidity.py +++++
+
+import numpy as np
+import pandas as pd
+
+from rfd.risks.raw import (
+    MARKET_LIQUIDITY_NAME,
+    MARKET_LIQUIDITY_COLOR,
+    get_market_liquidity_risk
+)
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+from rfd.decomposition.pca import get_pca_components
+
+NAME = "Liquidity Risk"
+COLOR = "rgb(0, 0, 0)"
+
+RISKS = [MARKET_LIQUIDITY_NAME]
+
+DATA_MAPPINGS = {
+    MARKET_LIQUIDITY_NAME: get_market_liquidity_risk
+}
+
+COLOR_MAPPINGS = {
+    MARKET_LIQUIDITY_NAME: MARKET_LIQUIDITY_COLOR
+}
+
+
+def get_risk(
+        yf_start=DEFAULT_YF_START_DATE,
+        yf_end=DEFAULT_YF_END_DATE,
+        time_choice=TIMES_CHOICE,
+        normalize=True,
+        include_date=False,
+        include_meta=True
+):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start:
+    :param yf_end:
+    :param time_choice:
+    :param normalize:
+    :param include_date:
+    :param include_meta:
+    :return:
+    """
+    df = pd.DataFrame()
+
+    for risk in RISKS:
+        df[risk] = DATA_MAPPINGS[risk](
+            yf_start=yf_start,
+            yf_end=yf_end,
+            time_choice=time_choice,
+            normalize=normalize,
+            include_date=include_date
+        )
+
+    component, loadings, explained_variance = get_pca_components(df, n_components=1, include_meta=True)
+    component.index = df.index
+
+    if include_meta:
+        return component, loadings, explained_variance
+    else:
+        return component
+
+
+"""
+5. Market Liquidity
+This group represents liquidity risk, focusing on how easily assets can be traded without affecting prices.
+
+Market Liquidity: LQD – iShares Investment Grade Corporate Bond ETF, which tracks liquidity conditions in the corporate bond market. You may want to consider adding a commercial paper spread to capture short-term corporate liquidity.
+Group Name: Liquidity Risk
+
+Description: This group focuses on the ability to buy or sell assets without large price changes, representing liquidity conditions in the bond market and overall market stress levels.
+
+
+"""
+
++++++ ./src/rfd/risks/components/inflation.py +++++
+
+import numpy as np
+import pandas as pd
+
+from rfd.risks.raw import (
+    INFLATION_NAME,
+    INFLATION_COLOR,
+    get_inflation_risk
+)
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+from rfd.decomposition.pca import get_pca_components
+
+NAME = "Inflation Risk"
+COLOR = "rgb(0, 0, 0)"
+
+RISKS = [INFLATION_NAME]
+
+DATA_MAPPINGS = {
+    INFLATION_NAME: get_inflation_risk
+}
+
+COLOR_MAPPINGS = {
+    INFLATION_NAME: INFLATION_COLOR
+}
+
+
+def get_risk(
+        yf_start=DEFAULT_YF_START_DATE,
+        yf_end=DEFAULT_YF_END_DATE,
+        time_choice=TIMES_CHOICE,
+        normalize=True,
+        include_date=False,
+        include_meta=True
+):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start:
+    :param yf_end:
+    :param time_choice:
+    :param normalize:
+    :param include_date:
+    :param include_meta:
+    :return:
+    """
+    df = pd.DataFrame()
+
+    for risk in RISKS:
+        df[risk] = DATA_MAPPINGS[risk](
+            yf_start=yf_start,
+            yf_end=yf_end,
+            time_choice=time_choice,
+            normalize=normalize,
+            include_date=include_date
+        )
+
+    component, loadings, explained_variance = get_pca_components(df, n_components=1, include_meta=True)
+    component.index = df.index
+
+    if include_meta:
+        return component, loadings, explained_variance
+    else:
+        return component
+
+"""
+4. Inflation and Inflation-Protected Securities
+This group captures the risk associated with inflation and how it affects bonds and other financial instruments.
+
+Inflation: TIP – iShares TIPS Bond ETF, representing inflation-protected bonds (TIPS), which hedge against inflation.
+Group Name: Inflation Risk
+
+Description: This group captures inflation risk and how rising prices can affect real bond yields and portfolio performance. TIPS are used to hedge against unexpected inflation.
+"""
+
++++++ ./src/rfd/risks/components/__init__.py +++++
+
+
++++++ ./src/rfd/risks/components/interest_rate.py +++++
+import numpy as np
+import pandas as pd
+
+from rfd.risks.raw import (
+    INTEREST_RATE_13W_NAME,
+    INTEREST_RATE_13W_COLOR,
+    get_interest_rate_13w_risk,
+
+    INTEREST_RATE_5Y_NAME,
+    INTEREST_RATE_5Y_COLOR,
+    get_interest_rate_5y_risk,
+
+    INTEREST_RATE_10Y_NAME,
+    INTEREST_RATE_10Y_COLOR,
+    get_interest_rate_10y_risk,
+
+    INTEREST_RATE_30Y_NAME,
+    INTEREST_RATE_30Y_COLOR,
+    get_interest_rate_30y_risk
+)
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+from rfd.decomposition.pca import get_pca_components
+
+NAME = "Yield Curve Dynamics"
+COLOR = "rgb(0, 0, 0)"
+
+RISKS = [INTEREST_RATE_13W_NAME, INTEREST_RATE_5Y_NAME, INTEREST_RATE_10Y_NAME, INTEREST_RATE_30Y_NAME]
+
+DATA_MAPPINGS = {
+    INTEREST_RATE_13W_NAME: get_interest_rate_13w_risk,
+    INTEREST_RATE_5Y_NAME: get_interest_rate_5y_risk,
+    INTEREST_RATE_10Y_NAME: get_interest_rate_10y_risk,
+    INTEREST_RATE_30Y_NAME: get_interest_rate_30y_risk
+}
+
+COLOR_MAPPINGS = {
+    INTEREST_RATE_13W_NAME: INTEREST_RATE_13W_COLOR,
+    INTEREST_RATE_5Y_NAME: INTEREST_RATE_5Y_COLOR,
+    INTEREST_RATE_10Y_NAME: INTEREST_RATE_10Y_COLOR,
+    INTEREST_RATE_30Y_NAME: INTEREST_RATE_30Y_COLOR
+}
+
+
+def get_risk(
+        yf_start=DEFAULT_YF_START_DATE,
+        yf_end=DEFAULT_YF_END_DATE,
+        time_choice=TIMES_CHOICE,
+        normalize=True,
+        include_date=False,
+        include_meta=True
+):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start:
+    :param yf_end:
+    :param time_choice:
+    :param normalize:
+    :param include_date:
+    :param include_meta:
+    :return:
+    """
+    df = pd.DataFrame()
+
+    for risk in RISKS:
+        df[risk] = DATA_MAPPINGS[risk](
+            yf_start=yf_start,
+            yf_end=yf_end,
+            time_choice=time_choice,
+            normalize=normalize,
+            include_date=include_date
+        )
+
+    component, loadings, explained_variance = get_pca_components(df, n_components=1, include_meta=True)
+    component.index = df.index
+
+    if include_meta:
+        return component, loadings, explained_variance
+    else:
+        return component
+
+"""
+1. Interest Rate and Yield Curve
+This category groups variables that represent the bond market's response to changes in interest rates across different maturities. These rates are key drivers of fixed-income market movements and bond valuations.
+
+Interest Rate (5y): ^FVX – 5-year Treasury bill yield, representing medium-term interest rates.
+Interest Rate (10y): ^TNX – 10-year Treasury bill yield, representing long-term interest rates and commonly used as a benchmark for bond pricing.
+Interest Rate (13w): ^IRX – 13-week Treasury bill yield, representing short-term interest rates and liquidity preferences.
+Interest Rate (30y): ^TYX – 30-year Treasury bill yield, representing very long-term interest rates and future inflation expectations.
+Group Name: Yield Curve Dynamics
+
+Description: This group captures the sensitivity of the financial system to changes in interest rates across different maturities, reflecting the term structure of interest rates (yield curve). These factors influence the pricing of bonds, equities, and borrowing costs.
+"""
+
+
++++++ ./src/rfd/risks/calculated/credit_spread.py +++++
+import pandas as pd
+
+# Example: Load Treasury and Corporate bond yield data
+treasury_yield = pd.read_csv('treasury_yield.csv')  # Data from FRED
+corp_bond_yield = pd.read_csv('corp_bond_yield.csv')  # Corporate bond yields from FRED
+
+# Calculate Credit Spread (Corporate Bond Yield - Treasury Yield)
+credit_spread = corp_bond_yield['Yield'] - treasury_yield['Yield']
+data['Credit_Spread'] = credit_spread
+
+
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Idiosyncratic"
+COLOR = "rgb(255, 99, 71)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    return None
+
++++++ ./src/rfd/risks/calculated/tail_risk.py +++++
+from scipy.stats import skew, kurtosis
+
+# Calculate daily returns of the ETF
+etf_returns = etf_data['Close'].pct_change().dropna()
+
+# Calculate skewness and kurtosis
+skewness = skew(etf_returns)
+kurt = kurtosis(etf_returns, fisher=False)  # Fisher=False for Pearson Kurtosis
+
+print(f"Skewness: {skewness}")
+print(f"Kurtosis: {kurt}")
+
+
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Idiosyncratic"
+COLOR = "rgb(255, 99, 71)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    return None
+
++++++ ./src/rfd/risks/calculated/idiosyncratic.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Idiosyncratic"
+COLOR = "rgb(255, 99, 71)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    return None
+
++++++ ./src/rfd/risks/calculated/beta.py +++++
+import numpy as np
+import pandas as pd
+
+# Example: ETF price and S&P 500 Index price
+etf_returns = etf_data['Close'].pct_change()  # daily returns of ETF
+market_returns = sp500_data['Close'].pct_change()  # daily returns of S&P 500
+
+# Calculate the covariance between ETF and market returns
+cov_matrix = np.cov(etf_returns[1:], market_returns[1:])  # ignoring first NaN
+
+# Extract covariance and market variance
+covariance = cov_matrix[0, 1]
+market_variance = cov_matrix[1, 1]
+
+# Calculate Beta
+beta = covariance / market_variance
+print(f"Beta: {beta}")
+
+
+
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Idiosyncratic"
+COLOR = "rgb(255, 99, 71)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    return None
+
++++++ ./src/rfd/risks/calculated/__init__.py +++++
+
+
++++++ ./src/rfd/risks/calculated/alpha.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Idiosyncratic"
+COLOR = "rgb(255, 99, 71)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    return None
+
++++++ ./src/rfd/risks/raw/bond_market.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Bond Market Risk"
+COLOR = "rgb(70, 130, 180)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    ticker = "AGG"  # iShares Core U.S. Aggregate Bond ETF (AGG)
+
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
+    df.index = df_tmp.index
+    if include_date:
+        df[DATE_COL] = df.index
+    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[NAME] = df[NAME] / df[NAME].mean()
+    return df
+
+
++++++ ./src/rfd/risks/raw/equity_market.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Equity Market Risk"
+COLOR = "rgb(34, 139, 34)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    ticker = "^GSPC"  # s&p500
+
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
+    df.index = df_tmp.index
+    if include_date:
+        df[DATE_COL] = df.index
+    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[NAME] = df[NAME] / df[NAME].mean()
+    return df
+
+
++++++ ./src/rfd/risks/raw/market_volatility.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Market Volatility Risk"
+COLOR = "rgb(255, 20, 147)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    ticker = "^VIX"  # CBOE Vix Index
+
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
+    df.index = df_tmp.index
+    if include_date:
+        df[DATE_COL] = df.index
+    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[NAME] = df[NAME] / df[NAME].mean()
+    return df
+
+
++++++ ./src/rfd/risks/raw/interest_rate_30y.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Interest Rate 30y Risk"
+COLOR = "rgb(255, 185, 0)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    ticker = "^TYX"  # 30 year treasury bill yield
+
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
+    df.index = df_tmp.index
+    if include_date:
+        df[DATE_COL] = df.index
+    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[NAME] = df[NAME] / df[NAME].mean()
+    return df
+
+
++++++ ./src/rfd/risks/raw/baseline.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Baseline"
+COLOR = "rgb(255, 160, 122)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    date_range = pd.date_range(start=yf_start, end=yf_end)
+    df = pd.DataFrame(date_range, columns=['Date'])
+    df.set_index('Date', inplace=True)
+    df[NAME] = 1.0
+    return df
+
+
++++++ ./src/rfd/risks/raw/interest_rate_5y.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Interest Rate 5y Risk"
+COLOR = "rgb(255, 140, 0)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    ticker = "^FVX"  # 5 year treasury bill yield
+
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
+    df.index = df_tmp.index
+    if include_date:
+        df[DATE_COL] = df.index
+    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[NAME] = df[NAME] / df[NAME].mean()
+    return df
+
+
++++++ ./src/rfd/risks/raw/market_liquidity.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Market Liquidity Risk"
+COLOR = "rgb(135, 206, 250)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    ticker = "LQD"  # iShares iBoxx $ Investment Grade Corporate Bond ETF (LQD)  plz fix - look into commercial paper
+
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
+    df.index = df_tmp.index
+    if include_date:
+        df[DATE_COL] = df.index
+    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[NAME] = df[NAME] / df[NAME].mean()
+    return df
+
+
++++++ ./src/rfd/risks/raw/inflation.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Inflation Risk"
+COLOR = "rgb(255, 215, 0)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    ticker = "TIP"  #  iShares TIPS Bond ETF (TIP)
+
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
+    df.index = df_tmp.index
+    if include_date:
+        df[DATE_COL] = df.index
+    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[NAME] = df[NAME] / df[NAME].mean()
+    return df
+
+
++++++ ./src/rfd/risks/raw/bond_market_high_yield.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Bond Market (High Yield) Risk"
+COLOR = "rgb(100, 149, 237)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    ticker = "JNK"  # blackrock HYB ETF
+
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
+    df.index = df_tmp.index
+    if include_date:
+        df[DATE_COL] = df.index
+    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[NAME] = df[NAME] / df[NAME].mean()
+    return df
+
+
++++++ ./src/rfd/risks/raw/__init__.py +++++
+
+import pandas as pd
+
+from rfd.settings import DEFAULT_YF_START_DATE, DEFAULT_YF_END_DATE, TIMES_CHOICE
+
+from rfd.risks.raw.baseline import COLOR as BASELINE_COLOR, NAME as BASELINE_NAME, get_risk as get_baseline_risk
+
+from rfd.risks.raw.bond_market import COLOR as BOND_MARKET_COLOR, NAME as BOND_MARKET_NAME, get_risk as get_bond_market_risk
+from rfd.risks.raw.bond_market_high_yield import COLOR as BOND_MARKET_HY_COLOR, NAME as BOND_MARKET_HY_NAME, get_risk as get_bond_market_hy_risk
+
+from rfd.risks.raw.equity_market import COLOR as EQUITY_MARKET_COLOR, NAME as EQUITY_MARKET_NAME, get_risk as get_equity_market_risk
+from rfd.risks.raw.market_liquidity import COLOR as MARKET_LIQUIDITY_COLOR, NAME as MARKET_LIQUIDITY_NAME, get_risk as get_market_liquidity_risk
+from rfd.risks.raw.market_volatility import COLOR as MARKET_VOLATILITY_COLOR, NAME as MARKET_VOLATILITY_NAME, get_risk as get_market_volatility_risk
+
+from rfd.risks.raw.inflation import COLOR as INFLATION_COLOR, NAME as INFLATION_NAME, get_risk as get_inflation_risk
+
+from rfd.risks.raw.interest_rate_30y import COLOR as INTEREST_RATE_30Y_COLOR, NAME as INTEREST_RATE_30Y_NAME, get_risk as get_interest_rate_30y_risk
+from rfd.risks.raw.interest_rate_10y import COLOR as INTEREST_RATE_10Y_COLOR, NAME as INTEREST_RATE_10Y_NAME, get_risk as get_interest_rate_10y_risk
+from rfd.risks.raw.interest_rate_5y import COLOR as INTEREST_RATE_5Y_COLOR, NAME as INTEREST_RATE_5Y_NAME, get_risk as get_interest_rate_5y_risk
+from rfd.risks.raw.interest_rate_13w import COLOR as INTEREST_RATE_13W_COLOR, NAME as INTEREST_RATE_13W_NAME, get_risk as get_interest_rate_13w_risk
+
+
+RISK_TYPES = [
+    BASELINE_NAME,
+    BOND_MARKET_NAME,
+    BOND_MARKET_HY_NAME,
+    EQUITY_MARKET_NAME,
+    MARKET_LIQUIDITY_NAME,
+    MARKET_VOLATILITY_NAME,
+    INFLATION_NAME,
+    INTEREST_RATE_30Y_NAME,
+    INTEREST_RATE_10Y_NAME,
+    INTEREST_RATE_5Y_NAME,
+    INTEREST_RATE_13W_NAME
+]
+
+
+RISK_INDICATOR_MAPPINGS = {
+    BASELINE_NAME: get_baseline_risk,
+
+    BOND_MARKET_NAME: get_bond_market_risk,
+    BOND_MARKET_HY_NAME: get_bond_market_risk_high_yield,
+
+    EQUITY_MARKET_NAME: get_equity_market_risk,
+    MARKET_LIQUIDITY_NAME: get_market_liquidity_risk,
+    MARKET_VOLATILITY_NAME: get_market_volatility_risk,
+
+    INFLATION_NAME: get_inflation_risk,
+
+    INTEREST_RATE_30Y_NAME: get_interest_rate_30y_risk,
+    INTEREST_RATE_10Y_NAME: get_interest_rate_10y_risk,
+    INTEREST_RATE_5Y_NAME: get_interest_rate_5y_risk,
+    INTEREST_RATE_13W_NAME: get_interest_rate_13w_risk
+}
+
+RISK_COLOR_MAPPING = {
+    BASELINE_NAME: BASELINE_COLOR,
+
+    BOND_MARKET_NAME: BOND_MARKET_COLOR,
+    BOND_MARKET_HY_NAME: BOND_MARKET_HY_COLOR,
+
+    EQUITY_MARKET_NAME: EQUITY_MARKET_COLOR,
+    MARKET_LIQUIDITY_NAME: MARKET_LIQUIDITY_COLOR,
+    MARKET_VOLATILITY_NAME: MARKET_VOLATILITY_COLOR,
+
+    INFLATION_NAME: INFLATION_COLOR,
+
+    INTEREST_RATE_30Y_COLOR: INTEREST_RATE_30Y_COLOR,
+    INTEREST_RATE_10Y_COLOR: INTEREST_RATE_10Y_COLOR,
+    INTEREST_RATE_5Y_COLOR: INTEREST_RATE_5Y_NAME,
+    INTEREST_RATE_13W_COLOR: INTEREST_RATE_13W_COLOR
+}
+
+
+def get_risk_inputs_df(
+        risk_types=RISK_TYPES,
+        yf_start=DEFAULT_YF_START_DATE,
+        yf_end=DEFAULT_YF_END_DATE,
+        time_choice=TIMES_CHOICE,
+        normalize=True,
+        include_const=True,
+        include_date=False,
+        fill_missing_dates=False,
+        fill_missing_method="ffill"
+):
+    """
+    Return a df of the risk types
+    :param risk_types:
+    :param yf_start:
+    :param yf_end:
+    :param time_choice:
+    :param normalize:
+    :param include_const:
+    :param include_date:
+    :param fill_missing_dates:
+    :param fill_missing_method:
+    :return:
+    """
+    df_risk_inputs = pd.DataFrame()
+    for risk_type in risk_types:
+        if risk_type in RISK_INDICATOR_MAPPINGS:
+            if risk_type == BASELINE_NAME and not include_const:
+                continue
+
+            df_risk = RISK_INDICATOR_MAPPINGS[risk_type](
+                yf_start=yf_start,
+                yf_end=yf_end,
+                time_choice=time_choice,
+                normalize=normalize,
+                include_date=include_date
+            )
+            for col in df_risk.columns:
+                df_risk_inputs[col] = df_risk[col]
+
+    if fill_missing_dates:
+        date_range = pd.date_range(start=yf_start, end=yf_end)
+        df_risk_inputs = df_risk_inputs.reindex(date_range)
+        # df_risk_inputs = df_risk_inputs.ffill(method=fill_missing_method)
+        df_risk_inputs = df_risk_inputs.ffill()
+
+
+    return df_risk_inputs
+
+
+
+
++++++ ./src/rfd/risks/raw/interest_rate_13w.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Interest Rate 13w Risk"
+COLOR = "rgb(255, 69, 0)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    ticker = "^IRX"  # 13-week Treasury bill yield
+
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
+    df.index = df_tmp.index
+    if include_date:
+        df[DATE_COL] = df.index
+    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[NAME] = df[NAME] / df[NAME].mean()
+    return df
+
+
++++++ ./src/rfd/risks/raw/interest_rate_10y.py +++++
+import pandas as pd
+import numpy as np
+import yfinance as yf
+
+from rfd.settings import (
+    DATE_COL,
+    DEFAULT_YF_START_DATE,
+    DEFAULT_YF_END_DATE,
+    TIMES_MAPPING,
+    TIMES_CHOICE
+)
+
+NAME = "Interest Rate 10y Risk"
+COLOR = "rgb(255, 165, 0)"
+
+
+def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
+    """
+    Return the risk indicator time series for the given daterange
+    :param yf_start: str YYYY-MM-DD
+    :param yf_end: str YYYY-MM-DD
+    :parma time_choice: str (Close, Open, Mean)
+    :param include_date: bool
+    :return: np.Array
+    """
+    ticker = "^TNX"  # 10 year treasury bill yield
+
+    company = yf.Ticker(ticker)
+    company_name = company.info['longName']
+
+    df = pd.DataFrame()
+    df_tmp = yf.download(ticker, start=yf_start, end=yf_end)
+    df.index = df_tmp.index
+    if include_date:
+        df[DATE_COL] = df.index
+    df[NAME] = TIMES_MAPPING[time_choice](df_tmp)
+    if normalize:
+        df[NAME] = df[NAME] / df[NAME].mean()
+    return df
+
+
++++++ ./src/rfd/model/__init__.py +++++
+
+
++++++ ./src/rfd/regression/wavKAN.py +++++
+import pywt
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import pandas as pd
+import numpy as np
+from torch.utils.data import DataLoader, Dataset
+
+
+# Custom Dataset to handle the time series data
+class TimeSeriesDataset(Dataset):
+    def __init__(self, X, y):
+        self.X = X
+        self.y = y
+
+    def __len__(self):
+        return len(self.y)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.y[idx]
+
+
+# Helper function to perform wavelet decomposition
+def wavelet_transform(x, wavelet_name='db1', level=3):
+    coeffs = pywt.wavedec(x, wavelet_name, level=level)
+    return np.concatenate(coeffs)  # Concatenate approximation and detail coefficients
+
+
+# Kolmogorov-Arnold Network with Wavelet Transforms and Contribution Tracking
+class WaveletKAN(nn.Module):
+    def __init__(self, target_series, exogenous_vars_df, hidden_size, wavelet_level=3, wavelet_name='db1',
+                 learning_rate=0.001):
+        super(WaveletKAN, self).__init__()
+
+        # Convert target series and exogenous variables to tensors
+        self.target_series = torch.tensor(target_series.values, dtype=torch.float32)
+        self.exogenous_vars = torch.tensor(exogenous_vars_df.values, dtype=torch.float32)
+        self.input_size = exogenous_vars_df.shape[1]
+
+        # Store wavelet settings
+        self.wavelet_level = wavelet_level
+        self.wavelet_name = wavelet_name
+
+        # Univariate transformations (psi functions after wavelet decomposition)
+        self.psi_layers = nn.ModuleList([nn.Linear((wavelet_level + 1), hidden_size) for _ in range(self.input_size)])
+
+        # Summing the outputs from psi_layers
+        self.sum_layer = nn.Linear(hidden_size * self.input_size, hidden_size)
+
+        # Univariate transformations (phi functions after summation)
+        self.phi_layer = nn.Linear(hidden_size, 1)
+
+        # Optimizer and loss function
+        self.learning_rate = learning_rate
+        self.optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
+        self.criterion = nn.MSELoss()
+
+    def forward(self, x):
+        # Apply wavelet transform to each input variable (column)
+        wavelet_transformed = []
+        for i in range(x.shape[1]):  # Iterate over input variables
+            wavelet_coeffs = np.apply_along_axis(lambda y: wavelet_transform(y, self.wavelet_name, self.wavelet_level),
+                                                 0, x[:, i:i + 1].detach().cpu().numpy())
+            wavelet_transformed.append(torch.tensor(wavelet_coeffs, dtype=torch.float32).to(x.device))
+
+        # Apply univariate psi transformations (after wavelet)
+        psi_outputs = [torch.relu(psi_layer(wavelet_transformed[i])) for i, psi_layer in enumerate(self.psi_layers)]
+
+        # Concatenate psi outputs and sum them
+        psi_outputs_concat = torch.cat(psi_outputs, dim=1)
+        summed_output = self.sum_layer(psi_outputs_concat)
+
+        # Apply final univariate transformation (phi function)
+        output = self.phi_layer(summed_output)
+
+        return output, psi_outputs  # Return both the final output and psi outputs for contribution analysis
+
+    def fit(self, epochs=100, batch_size=32):
+        # Create DataLoader for batching
+        dataset = TimeSeriesDataset(self.exogenous_vars, self.target_series)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+        for epoch in range(epochs):
+            running_loss = 0.0
+
+            for i, (inputs, labels) in enumerate(dataloader):
+                # Zero the parameter gradients
+                self.optimizer.zero_grad()
+
+                # Forward pass
+                outputs, _ = self.forward(inputs)
+                loss = self.criterion(outputs, labels)
+
+                # Backward pass and optimize
+                loss.backward()
+                self.optimizer.step()
+
+                running_loss += loss.item()
+
+            # Print average loss for the epoch
+            avg_loss = running_loss / len(dataloader)
+            print(f"Epoch [{epoch + 1}/{epochs}], Loss: {avg_loss:.4f}")
+
+    def predict(self, exogenous_vars_df):
+        # Convert the new exogenous variables to tensor
+        exogenous_vars = torch.tensor(exogenous_vars_df.values, dtype=torch.float32)
+
+        # Forward pass for prediction
+        with torch.no_grad():
+            predictions, _ = self.forward(exogenous_vars)
+
+        return predictions.numpy()
+
+    def get_contributions(self, exogenous_vars_df):
+        # Convert exogenous variables to tensor
+        exogenous_vars = torch.tensor(exogenous_vars_df.values, dtype=torch.float32)
+
+        # Get the forward pass and retrieve psi outputs
+        with torch.no_grad():
+            _, psi_outputs = self.forward(exogenous_vars)
+
+        # Calculate the absolute sum of psi outputs for each variable to determine their contribution
+        contributions = [torch.sum(torch.abs(psi_output), dim=0).item() for psi_output in psi_outputs]
+
+        # Normalize contributions to get proportions
+        total_contribution = sum(contributions)
+        normalized_contributions = [contrib / total_contribution for contrib in contributions]
+
+        return normalized_contributions  # Returns the proportionate contribution of each exogenous variable
+
+
+# Example usage
+if __name__ == "__main__":
+    # Generate example target time series (e.g., stock price) and exogenous variables (e.g., interest rates, volatility)
+    np.random.seed(42)
+    target_series = pd.Series(np.random.randn(500))  # Example stock prices
+    exogenous_vars_df = pd.DataFrame({
+        'Interest_Rate_5Y': np.random.randn(500),
+        'Interest_Rate_10Y': np.random.randn(500),
+        'Market_Volatility': np.random.randn(500)
+    })
+
+    # Initialize the model with the target and exogenous variables
+    hidden_size = 10
+    model = WaveletKAN(target_series, exogenous_vars_df, hidden_size, wavelet_level=3)
+
+    # Fit the model
+    model.fit(epochs=10, batch_size=32)
+
+    # Predict on new exogenous data (could be future values)
+    new_exogenous_vars_df = pd.DataFrame({
+        'Interest_Rate_5Y': np.random.randn(10),
+        'Interest_Rate_10Y': np.random.randn(10),
+        'Market_Volatility': np.random.randn(10)
+    })
+
+    predictions = model.predict(new_exogenous_vars_df)
+    print("Predictions:", predictions)
+
+    # Get the contribution proportions of each exogenous variable
+    contributions = model.get_contributions(new_exogenous_vars_df)
+    print("Exogenous Variable Contributions:", contributions)
+
+
++++++ ./src/rfd/regression/linear_regularization.py +++++
+"""
+Ridge (high penalty)        L1_wt = 1.0
+Elastic (medium penalty)    0.33 < L1_wt < 0.66
+LASSO (low penalty)         L1_wt = 0.0
+"""
+
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+
+
+PARAMS = {
+    "ridge": {
+        "alpha": 1.25,
+        "L1_wt": 0.90
+    },
+    "lasso": {
+        "alpha": 0.25,
+        "L1_wt": 0.10
+    },
+    "elastic": {
+        "alpha": 0.75,
+        "L1_wt": 0.50
+    }
+}
+
+
+DEFAULT_ALPHA = PARAMS["ridge"]["alpha"]
+DEFAULT_L1 = PARAMS["ridge"]["L1_wt"]
+
+
+def get_fit(target_series, df_inputs, alpha=DEFAULT_ALPHA, L1_wt=DEFAULT_L1, model=None):
+    """
+    Return a linear decomposition of the time series data
+    :param target_series:
+    :param df_inputs:
+    :param alpha:
+    :param L1_wt:
+    :param model: ["ridge", "lasso", "elastic"]
+    :return:
+    """
+    if model and (model in PARAMS) and (alpha == DEFAULT_L1 and L1_wt == DEFAULT_L1):
+        alpha = PARAMS[model]["alpha"]
+        L1_wt = PARAMS[model]["L1_wt"]
+    model = sm.OLS(target_series, df_inputs).fit_regularized(alpha=alpha, L1_wt=L1_wt)
+    return model
+
+
+def get_proportion_df(df, pfilter=False, threshold=0.0):
+    """
+    Return a proportional df
+    :param df:
+    :param pfilter:
+    :param threshold:
+    :return:
+    """
+    columns = [col for col in df.columns if col.lower().strip() != "date"]
+    df["Total"] = df[columns].sum(axis=1)
+
+    df_proportions = pd.DataFrame()
+    df_proportions.index = df.index
+    # df_proportions["Date"] = df["Date"]
+    # df_proportions.set_index('Date', inplace=True)
+
+    for col in columns:
+        mean = df[col].mean()
+        if pfilter:
+            if mean >= threshold:
+                new_col = f"% {col}"
+                # df_proportions[new_col] = np.where(df[df["Total"]] != 0.0, df[col] / df["Total"], 0.0)
+                df_proportions[new_col] = np.divide(
+                    df[col],
+                    df["Total"],
+                    out=np.zeros_like(df[col]),
+                    where=df["Total"] != 0
+                )
+
+        else:
+            new_col = f"% {col}"
+            # df_proportions[new_col] = np.where(df[df["Total"]] != 0.0, df[col] / df["Total"], 0.0)
+            df_proportions[new_col] = np.divide(
+                df[col],
+                df["Total"],
+                out=np.zeros_like(df[col]),
+                where=df["Total"] != 0
+            )
+
+    return df_proportions
+
+
+def get_results_df(target_series, df_proportions):
+    """
+    Return the results data frame based on the target series and input proportions
+    :param target_series:
+    :param df_proportions:
+    :return:
+    """
+    df_results = pd.DataFrame()
+    df_proportions.index = df_proportions.index
+    for col in df_proportions.columns:
+        if col.startswith("%"):
+            new_col = col.split("% ")[-1]
+            df_results[new_col] = target_series * df_proportions[col]
+    return df_results
+
+#
+#
+#     param_abs_values = [abs(float(v)) for v in param_values]
+#     param_value_total = float(sum(param_abs_values))
+#     param_proportion = [v / param_value_total for v in param_abs_values]
+#
+#     key_value = [(param_names[i], param_proportion[i]) for i in range(len(param_names))]
+#     key_value.sort(key=lambda x: x[1], reverse=True)
+#
+#     for name, proportion in key_value:
+#         value = (df_results[name] * proportion)
+#         df_results[name] = value
+#
+#     ordered_columns = [kv[0] for kv in key_value]
+#     return df_results, ordered_columns
+#
+# #
+# def get_nonlinear_decomposition(target_series, df_inputs, add_constant=True, degree=2, alpha=DEFAULT_ALPHA, L1_wt=DEFAULT_L1):
+#     """
+#     Return a linear decomposition of the time series data
+#     :param target_series:
+#     :param df_inputs:
+#     :param add_constant:
+#     :param degree:
+#     :param alpha:
+#     :param L1_wt:
+#     :return:
+#     """
+#     original_column_names = df_inputs.columns.tolist()
+#     X_poly = PolynomialFeatures(degree=degree, include_bias=False).fit_transform(df_inputs)
+#     X_poly = pd.DataFrame(X_poly, columns=original_column_names)
+#     X_poly.fillna(X_poly.mean(), inplace=True)
+#     X_poly = sm.add_constant(X_poly, prepend=False) if add_constant else X_poly
+#     model = sm.OLS(target_series, X_poly).fit_regularized(alpha=alpha, L1_wt=L1_wt)
+#     return model
+#
+#
+# def get_nonlinear_proportion_df(df_results, param_names, param_values):
+#     """
+#     Return a proportional df based on the model params
+#     :param df_results:
+#     :param param_names:
+#     :param param_values:
+#     :return:
+#     """
+#     param_abs_values = [abs(float(v)) for v in param_values]
+#     param_value_total = float(sum(param_abs_values))
+#     param_proportion = [v / param_value_total for v in param_abs_values]
+#
+#     key_value = [(param_names[i], param_proportion[i]) for i in range(len(param_names))]
+#     key_value.sort(key=lambda x: x[1], reverse=True)
+#
+#     for name, proportion in key_value:
+#         value = (df_results[name] * proportion)
+#         df_results[name] = value
+#
+#     return df_results
+#
+
+
+# plz fix - akaike information criterion (aic) and bayesian information criterion (bic)
+
+
++++++ ./src/rfd/regression/__init__.py +++++
+
+
+
+
+
+
++++++ ./src/rfd/decomposition/__init__.py +++++
+
+
++++++ ./src/rfd/decomposition/pca.py +++++
+
+import numpy as np
+import pandas as pd
+
+from sklearn.decomposition import PCA, FastICA
+from sklearn.preprocessing import StandardScaler
+
+from rfd.settings import SEED
+
+
+def get_pca_components(df, n_components=1, seed=SEED, include_meta=True):
+    """
+    Get the principal components from the df
+    :param df:
+    :param n_components:
+    :param seed:
+    :param include_meta:
+    :return:
+    """
+    if SEED:
+        np.random.seed(seed)
+    pca = PCA(n_components=n_components)
+    principal_components = pca.fit_transform(df)
+
+    if include_meta:
+        loadings = pca.components_
+        explained_variance = pca.explained_variance_ratio_
+        return principal_components, loadings, explained_variance
+    else:
+        return principal_components
+
+
+def get_ica_components(df, n_components=1, seed=SEED, include_meta=True):
+    """
+    Get the independent components from the df
+    :param df:
+    :param n_components:
+    :param seed:
+    :param include_meta:
+    :return:
+    """
+    if SEED:
+        np.random.seed(seed)
+    pca = FastICA(n_components=n_components)
+    principal_components = pca.fit_transform(df)
+
+    if include_meta:
+        loadings = pca.components_
+        return principal_components, loadings, None
+    else:
+        return principal_components
+
+
+def get_optimal_n_components(df, seed=SEED):
+    """
+    Detect the optimal number of components to use
+    :param df:
+    :param seed:
+    :return:
+    """
+    if SEED:
+        np.random.seed(seed)
+
+    pca = PCA()
+    scaler = StandardScaler()
+
+    df_scaled = scaler.fit_transform(df)
+    pca.fit(df_scaled)
+
+    explained_variance = pca.explained_variance_ratio_
+    second_derivative = np.diff(np.diff(explained_variance))
+    elbow_point = np.argmax(second_derivative) + 2  # +2 because we took the second derivative
+
+    return elbow_point
+
+
+
+
+
++++++ ./src/rfd/decomposition/eval.py +++++
+
+

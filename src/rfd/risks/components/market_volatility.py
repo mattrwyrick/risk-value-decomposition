@@ -24,7 +24,7 @@ from rfd.decomposition.pca import get_pca_components
 
 
 NAME = "Volatility and Tail Risk"
-COLOR = "rgb(0, 0, 0)"
+COLOR = "rgb(150, 200, 200)"
 
 RISKS = [MARKET_VOLATILITY_NAME]
 

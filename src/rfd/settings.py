@@ -28,6 +28,8 @@ def get_yf_date(dtime):
     return f"{year}-{month}-{day}"
 
 
+DEFAULT_RISK_TYPE = "structure"
+
 DEFAULT_YEARS_BACK = 3
 
 DEFAULT_DT_END_DATE = dt.datetime.today()

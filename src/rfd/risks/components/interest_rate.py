@@ -30,7 +30,7 @@ from rfd.settings import (
 from rfd.decomposition.pca import get_pca_components
 
 NAME = "Yield Curve Dynamics"
-COLOR = "rgb(0, 0, 0)"
+COLOR = "rgb(200, 150, 150)"
 
 RISKS = [INTEREST_RATE_13W_NAME, INTEREST_RATE_5Y_NAME, INTEREST_RATE_10Y_NAME, INTEREST_RATE_30Y_NAME]
 

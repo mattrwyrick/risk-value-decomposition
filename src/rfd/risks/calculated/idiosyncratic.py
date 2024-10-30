@@ -11,7 +11,7 @@ from rfd.settings import (
 )
 
 NAME = "Idiosyncratic"
-COLOR = "rgb(255, 99, 71)"
+COLOR = "rgb(180, 180, 180)"
 
 
 def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):

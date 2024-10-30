@@ -1,0 +1,47 @@
+<!-- Disclaimer Section -->
+<div class="container mt-4">
+    <div class="row">
+        <div class="col text-center">
+            <p style="color: gray; font-size: 0.8rem;">
+                <strong>Disclaimer:</strong> This decomposition app is for educational purposes only and should not be considered financial advice.
+                Use at your own risk. The author of this application is not liable for any financial losses or decisions made based on the analysis provided.
+            </p>
+        </div>
+    </div>
+</div>
+
+
+<!-- Bootstrap JS and jQuery -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<!-- JavaScript for Redirect -->
+<script>
+    document.getElementById('decompositionLink').addEventListener('click', function() {
+        window.location.href = '/decomposition';
+    });
+</script>
+<!-- Plotly JS -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            // Hide the other chart to avoid white space issues
+            if ($(e.target).attr('href') === '#stock') {
+                $('#decompositionChartDiv').addClass('hidden');
+                $('#stockChartDiv').removeClass('hidden');
+            } else {
+                $('#stockChartDiv').addClass('hidden');
+                $('#decompositionChartDiv').removeClass('hidden');
+            }
+
+            // Redraw the Plotly chart when the tab is shown
+            let chartId = $(e.target).attr('href').substring(1);
+            Plotly.Plots.resize(document.getElementById(chartId).getElementsByClassName('js-plotly-plot')[0]);
+        });
+    });
+</script>
+
+</body>
+</html>
