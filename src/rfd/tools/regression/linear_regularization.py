@@ -54,7 +54,7 @@ def get_fit(target_series, df_inputs, alpha=DEFAULT_ALPHA, L1_wt=DEFAULT_L1, mod
         df_inputs = df_inputs.iloc[n_inputs - n_target:]
     elif n_target > n_inputs:
         target_series = target_series[n_inputs - n_target:]
-
+        
     model = sm.OLS(target_series, df_inputs).fit()
     return model
 

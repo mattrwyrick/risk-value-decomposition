@@ -19,8 +19,10 @@ from rfd.process.decomposition import (
 
 from rfd.tools.plot.area import get_plot
 
+import yfinance
 
-TEMPLATE = "./decomposition.html"
+
+TEMPLATE = "./test.html"
 FILL_MISSING_DATES = True
 FILL_MISSING_METHOD = "ffill"  # forward fill
 
@@ -47,21 +49,32 @@ def view(request, cache={}):
         normalize=False
     )
 
+    fig_line = px.line(df_asset_raw, x=DATE_COL, y=ticker)
+    fig_line.update_yaxes(range=[0, df_asset_raw[ticker].max() * 1.1])
+    html_line = fig_line.to_html()
+
+    cache["line_chart"] = html_line
+
+    return render_template(TEMPLATE, **cache)
+
     df_asset = get_asset_data(
         ticker=ticker,
         yf_start=start_date,
         yf_end=end_date
     )
 
-    if FILL_MISSING_DATES or True:
-        date_range = pd.date_range(start=start_date, end=end_date)
+    if df_asset.empty:
+        raise "No data 1234"
+
+    if FILL_MISSING_DATES:
+        date_range = pd.date_range(start=end_date, end=start_date)  # plz fix (later)
         df_asset = df_asset.reindex(date_range)
-        df_asset = df_asset.ffill()
-        df_asset.iloc[0] = df_asset.iloc[1]
+        df_asset = df_asset.fillna(method=FILL_MISSING_METHOD)
+        df_asset["Date"] = df_asset.index
 
         df_asset_raw = df_asset_raw.reindex(date_range)
-        df_asset_raw = df_asset_raw.ffill()
-        df_asset_raw.iloc[0] = df_asset_raw.iloc[1]
+        df_asset_raw = df_asset_raw.fillna(method=FILL_MISSING_METHOD)
+        df_asset_raw["Date"] = df_asset_raw.index
 
     df_asset_raw.dropna(inplace=True)
     df_asset.dropna(inplace=True)
@@ -72,8 +85,8 @@ def view(request, cache={}):
 
     df_results = get_structured_risks_decomposition_df(
         asset_series,
-        yf_start=start_date,
-        yf_end=end_date,
+        yf_start=end_date,
+        yf_end=start_date,
         time_choice=time_choice,
         normalize=normalize,
         include_const=True,
@@ -143,10 +156,8 @@ def get_values_from_request(request):
         end_date = None
 
     if start_date is not None and end_date is not None:
-        if start_date < end_date:
-            tmp = start_date
-            start_date = end_date
-            end_date = tmp
+        start_date = start_date if start_date < end_date else end_date
+        end_date = end_date if start_date < end_date else start_date
 
     try:
         l1_wt = float(values["l1_wt"].strip()) if "l1_wt" in values else None

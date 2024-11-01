@@ -6,6 +6,7 @@ numpy
 pandas
 plotly
 pykan
+requests
 scipy
 scikit-learn
 statsmodels
