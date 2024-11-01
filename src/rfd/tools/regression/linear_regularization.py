@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from settings import DATE_COL
+from rfd.settings import DATE_COL
 
 PARAMS = {
     "ridge": {
@@ -44,6 +44,17 @@ def get_fit(target_series, df_inputs, alpha=DEFAULT_ALPHA, L1_wt=DEFAULT_L1, mod
         alpha = PARAMS[model]["alpha"]
         L1_wt = PARAMS[model]["L1_wt"]
     # model = sm.OLS(target_series, df_inputs).fit_regularized(alpha=alpha, L1_wt=L1_wt)
+    target_series = target_series.dropna()
+    df_inputs = df_inputs.dropna()
+
+    n_target = len(target_series)
+    n_inputs = df_inputs.shape[0]
+
+    if n_target < n_inputs:
+        df_inputs = df_inputs.iloc[n_inputs - n_target:]
+    elif n_target > n_inputs:
+        target_series = target_series[n_inputs - n_target:]
+
     model = sm.OLS(target_series, df_inputs).fit()
     return model
 
@@ -67,6 +78,6 @@ def get_proportion_df(asset_series, results, columns, pfilter=False, threshold=0
     params_scaled = params_abs / params_total
 
     for i, col in enumerate(columns):
-        df[col] = asset_series * params_scaled[i]
+        df[col] = np.full(len(asset_series), params_scaled[i])
 
     return df

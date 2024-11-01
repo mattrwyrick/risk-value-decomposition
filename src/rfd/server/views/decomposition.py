@@ -85,16 +85,25 @@ def view(request, cache={}):
 
     if normalize:
         for col in df_results.columns:
-            df_results[col] = df_results[col] * asset_series_raw
+            df_results[col] = np.array(df_results[col]) * np.array(asset_series_raw)
 
-    df_results["Date"] = df_asset["Date"]
+    df_results[DATE_COL] = np.array(df_asset[DATE_COL])
 
     fig_area = get_plot(df_results)
-    fig_area.update_yaxes(range=[0, asset_series_raw.max() + (0.05 * np.mean(asset_series_raw))])
+    fig_area.update_yaxes(range=[0, asset_series_raw.max() * 1.1])
+    fig_area.update_layout(
+        legend=dict(
+            orientation="h",  # horizontal layout
+            yanchor="top",  # aligns legend at the top of the chart
+            y=-0.2,  # places legend below the chart
+            xanchor="center",
+            x=0.5  # centers legend horizontally
+        )
+    )
     html_area = fig_area.to_html()
 
     fig_line = px.line(df_asset_raw, x=DATE_COL, y=ticker)
-    fig_line.update_yaxes(range=[0, asset_series_raw.max() + (0.05 * np.mean(asset_series_raw))])
+    fig_line.update_yaxes(range=[0, asset_series_raw.max() * 1.1])
     html_line = fig_line.to_html()
 
     #

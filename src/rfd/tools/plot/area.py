@@ -17,10 +17,10 @@ def get_plot(df, risk_type=DEFAULT_RISK_TYPE, show=False):
     """
     df[DATE_COL] = pd.to_datetime(df[DATE_COL])
 
-    if risk_type == "structure":
-        color_mapping = STRUCTURED_RISK_COLOR_MAPPING
-    else:
+    if risk_type == "raw":
         color_mapping = RAW_RISK_COLOR_MAPPING
+    else:
+        color_mapping = STRUCTURED_RISK_COLOR_MAPPING
 
     columns = get_ordered_y_columns(df)
 

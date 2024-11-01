@@ -20,5 +20,5 @@ def decomposition():
     return decomposition_view(request, {"title": "Risk Factor Decomposition"})
 
 
-if __name__ == '__main__':
-    app.run(host=HOST, port=PORT, debug=True)
+# if __name__ == '__main__':
+#     app.run(host=HOST, port=PORT, debug=True)

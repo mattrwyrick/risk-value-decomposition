@@ -41,6 +41,16 @@ def get_decomposition_df(
         fill_missing_dates=fill_missing_dates,
         fill_missing_method=fill_missing_method
     )
+    asset_series = asset_series.dropna()
+    df_risks = df_risks.dropna()
+
+    n_target = len(asset_series)
+    n_inputs = df_risks.shape[0]
+
+    if n_target < n_inputs:
+        df_risks = df_risks.iloc[n_inputs - n_target:]
+    elif n_target > n_inputs:
+        asset_series = asset_series[n_inputs - n_target:]
 
     results = get_fit(asset_series, df_risks)
     df_proportions = get_proportion_df(asset_series, results, list(df_risks.columns))
