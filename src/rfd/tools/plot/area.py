@@ -24,7 +24,7 @@ def get_plot(df, risk_type=DEFAULT_RISK_TYPE, show=False):
 
     columns = get_ordered_y_columns(df)
 
-    fig = px.area(df, x=DATE_COL, y=[columns], color_discrete_map=color_mapping)
+    fig = px.area(df, x=DATE_COL, y=[str(c) for c in columns], color_discrete_map=color_mapping)
 
     if show:
         fig.show()

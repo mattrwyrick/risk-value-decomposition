@@ -21,8 +21,6 @@ def get_ordered_y_columns(df, risk_type=DEFAULT_RISK_TYPE):
 
     columns = [col for col in df.columns if col in keep_cols]
 
-    if BASELINE_NAME in df.columns:
-        columns = [BASELINE_NAME] + columns
     if IDIOSYNCRATIC_NAME in df.columns:
         columns = columns + [IDIOSYNCRATIC_NAME]
 

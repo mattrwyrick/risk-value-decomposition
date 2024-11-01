@@ -43,7 +43,7 @@ def get_decomposition_df(
     )
 
     results = get_fit(asset_series, df_risks)
-    df_proportions = get_proportion_df(asset_series, results)
+    df_proportions = get_proportion_df(asset_series, results, list(df_risks.columns))
     return df_proportions
 
 

@@ -61,12 +61,13 @@ def get_risk(
         )
 
     component, loadings, explained_variance = get_pca_components(df, n_components=1, include_meta=True)
-    component.index = df.index
+    df_risk = pd.DataFrame({NAME: component.reshape(-1)})
+    df_risk.index = df.index
 
     if include_meta:
-        return component, loadings, explained_variance
+        return df_risk, loadings, explained_variance
     else:
-        return component
+        return df_risk
 
 
 """

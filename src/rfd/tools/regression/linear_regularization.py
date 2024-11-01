@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
+from settings import DATE_COL
 
 PARAMS = {
     "ridge": {
@@ -42,11 +43,12 @@ def get_fit(target_series, df_inputs, alpha=DEFAULT_ALPHA, L1_wt=DEFAULT_L1, mod
     if model and (model in PARAMS) and (alpha == DEFAULT_L1 and L1_wt == DEFAULT_L1):
         alpha = PARAMS[model]["alpha"]
         L1_wt = PARAMS[model]["L1_wt"]
-    model = sm.OLS(target_series, df_inputs).fit_regularized(alpha=alpha, L1_wt=L1_wt)
+    # model = sm.OLS(target_series, df_inputs).fit_regularized(alpha=alpha, L1_wt=L1_wt)
+    model = sm.OLS(target_series, df_inputs).fit()
     return model
 
 
-def get_proportion_df(df, pfilter=False, threshold=0.0):
+def get_proportion_df(asset_series, results, columns, pfilter=False, threshold=0.0):
     """
     Return a proportional df
     :param df:
@@ -54,31 +56,17 @@ def get_proportion_df(df, pfilter=False, threshold=0.0):
     :param threshold:
     :return:
     """
-    columns = [col for col in df.columns if col.lower().strip() != "date"]
-    df["Total"] = df[columns].sum(axis=1)
+    c=1
+    df = pd.DataFrame()
+    df.index = df.index
+    fit = results.fittedvalues
+    residuals = results.resid
 
-    df_proportions = pd.DataFrame()
-    df_proportions.index = df.index
+    params_abs = np.abs(list(results.params))
+    params_total = np.sum(params_abs)
+    params_scaled = params_abs / params_total
 
-    for col in columns:
-        mean = df[col].mean()
-        if pfilter:
-            if mean >= threshold:
-                new_col = f"% {col}"
-                df_proportions[new_col] = np.divide(
-                    df[col],
-                    df["Total"],
-                    out=np.zeros_like(df[col]),
-                    where=df["Total"] != 0
-                )
+    for i, col in enumerate(columns):
+        df[col] = asset_series * params_scaled[i]
 
-        else:
-            new_col = f"% {col}"
-            df_proportions[new_col] = np.divide(
-                df[col],
-                df["Total"],
-                out=np.zeros_like(df[col]),
-                where=df["Total"] != 0
-            )
-
-    return df_proportions
+    return df

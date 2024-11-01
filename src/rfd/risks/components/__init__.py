@@ -86,12 +86,17 @@ def get_risk_inputs_df(
                 normalize=normalize,
                 include_date=include_date
             )
+            if type(df_risk) == tuple:
+                df_risk = df_risk[0]
+
+            c = 1
             for col in df_risk.columns:
                 df_risk_inputs[col] = df_risk[col]
 
-    if fill_missing_dates:
+    if fill_missing_dates or True:  # TODO: update logic correctly later
         date_range = pd.date_range(start=yf_start, end=yf_end)
         df_risk_inputs = df_risk_inputs.reindex(date_range)
         df_risk_inputs = df_risk_inputs.ffill()
+        df_risk_inputs.iloc[0] = df_risk_inputs.iloc[1]
 
     return df_risk_inputs

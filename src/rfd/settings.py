@@ -28,7 +28,7 @@ def get_yf_date(dtime):
     return f"{year}-{month}-{day}"
 
 
-DEFAULT_RISK_TYPE = "structure"
+DEFAULT_RISK_TYPE = "structured"
 
 DEFAULT_YEARS_BACK = 3
 

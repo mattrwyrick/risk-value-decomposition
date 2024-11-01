@@ -1,3 +1,5 @@
+from turtledemo.penrose import start
+
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -38,6 +40,13 @@ def view(request, cache={}):
 
     add_constant = True
 
+    df_asset_raw = get_asset_data(
+        ticker=ticker,
+        yf_start=start_date,
+        yf_end=end_date,
+        normalize=False
+    )
+
     df_asset = get_asset_data(
         ticker=ticker,
         yf_start=start_date,
@@ -45,17 +54,26 @@ def view(request, cache={}):
     )
 
     if FILL_MISSING_DATES:
-        date_range = pd.date_range(start=start_date, end=end_date)  # plz fix (later)
+        date_range = pd.date_range(start=end_date, end=start_date)  # plz fix (later)
         df_asset = df_asset.reindex(date_range)
         df_asset = df_asset.fillna(method=FILL_MISSING_METHOD)
+        df_asset["Date"] = df_asset.index
 
+        df_asset_raw = df_asset_raw.reindex(date_range)
+        df_asset_raw = df_asset_raw.fillna(method=FILL_MISSING_METHOD)
+        df_asset_raw["Date"] = df_asset_raw.index
+
+    df_asset_raw.dropna(inplace=True)
+    df_asset.dropna(inplace=True)
+
+    asset_series_raw = df_asset_raw[ticker]
     asset_series = df_asset[ticker]
     date_series = df_asset[DATE_COL]
 
     df_results = get_structured_risks_decomposition_df(
         asset_series,
-        yf_start=start_date,
-        yf_end=end_date,
+        yf_start=end_date,
+        yf_end=start_date,
         time_choice=time_choice,
         normalize=normalize,
         include_const=True,
@@ -66,29 +84,36 @@ def view(request, cache={}):
     )
 
     if normalize:
-        df_results = df_results * asset_series
+        for col in df_results.columns:
+            df_results[col] = df_results[col] * asset_series_raw
 
     df_results["Date"] = df_asset["Date"]
 
+    fig_area = get_plot(df_results)
+    fig_area.update_yaxes(range=[0, asset_series_raw.max() + (0.05 * np.mean(asset_series_raw))])
+    html_area = fig_area.to_html()
 
+    fig_line = px.line(df_asset_raw, x=DATE_COL, y=ticker)
+    fig_line.update_yaxes(range=[0, asset_series_raw.max() + (0.05 * np.mean(asset_series_raw))])
+    html_line = fig_line.to_html()
 
-
-
-    fig_area = results.area_plot()
-    html_area = pio.to_html(fig_area)
-
-    fig_line = px.line(target_series)
-    fig_line.update_layout(
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.2,
-            xanchor="center",
-            x=0.5
-        )
-    )
-    fig_line.update_yaxes(range=[0, target_series.max() + (0.05 * np.mean(target_series))])
-    html_line = pio.to_html(fig_line)
+    #
+    # html = fig.to_html()
+    #
+    # fig_area = df_results.area_plot()
+    # html_area = pio.to_html(fig_area)
+    #
+    # fig_line = px.line(asset_series)
+    # fig_line.update_layout(
+    #     legend=dict(
+    #         orientation="h",
+    #         yanchor="top",
+    #         y=-0.2,
+    #         xanchor="center",
+    #         x=0.5
+    #     )
+    # )
+    # html_line = pio.to_html(fig_line)
 
     cache["area_chart"] = html_area
     cache["line_chart"] = html_line
