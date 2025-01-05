@@ -25,6 +25,12 @@ FILL_MISSING_DATES = True
 FILL_MISSING_METHOD = "ffill"  # forward fill
 
 
+DEFAULT_TICKER = ""
+DEFAULT_TIME_CHOICE = "Close"
+DEFAULT_L1_WEIGHT = 0.90
+DEFAULT_ALPHA = 0.25
+
+
 def view(request, cache={}):
     """
     Create the home page
@@ -32,13 +38,11 @@ def view(request, cache={}):
     :param cache: dict
     :return:
     """
-    ticker, end_date, start_date, time_choice, normalize, l1_wt, alpha = get_values_from_request(request)
-    cache = add_to_cache(cache, ticker, end_date, start_date, time_choice, normalize, l1_wt, alpha)
+    ticker, end_date, start_date, time_choice, l1_wt, alpha = get_values_from_request(request)
+    cache = add_to_cache(cache, ticker, end_date, start_date, time_choice, l1_wt, alpha)
 
     if not (ticker and end_date and start_date and time_choice and l1_wt and alpha):
         return render_template(TEMPLATE, **cache)
-
-    add_constant = True
 
     df_asset_raw = get_asset_data(
         ticker=ticker,
@@ -75,17 +79,15 @@ def view(request, cache={}):
         yf_start=start_date,
         yf_end=end_date,
         time_choice=time_choice,
-        normalize=normalize,
+        normalize=True,
         include_const=True,
         include_date=False,
         fill_missing_dates=False,
         fill_missing_method="ffill"
-
     )
 
-    if normalize:
-        for col in df_results.columns:
-            df_results[col] = np.array(df_results[col]) * np.array(asset_series_raw)
+    for col in df_results.columns:
+        df_results[col] = np.array(df_results[col]) * np.array(asset_series_raw)
 
     df_results[DATE_COL] = np.array(df_asset[DATE_COL])
 
@@ -120,9 +122,8 @@ def get_values_from_request(request):
     """
     values = request.values
 
-    ticker = values["ticker"].strip() if "ticker" in values else None
-    time_choice = values["time_choice"].strip() if "time_choice" in values else None
-    normalize = False if "normalize" in values and values["normalize"] == "No" else True
+    ticker = values["ticker"].strip() if "ticker" in values else DEFAULT_TICKER
+    time_choice = values["time_choice"].strip() if "time_choice" in values else DEFAULT_TIME_CHOICE
 
     try:
         start_date = values["start_date"].strip() if "start_date" in values else DEFAULT_YF_START_DATE
@@ -149,20 +150,20 @@ def get_values_from_request(request):
             end_date = tmp
 
     try:
-        l1_wt = float(values["l1_wt"].strip()) if "l1_wt" in values else None
+        l1_wt = float(values["l1_wt"].strip()) if "l1_wt" in values else DEFAULT_L1_WEIGHT
     except:
         l1_wt = None
 
     try:
-        alpha = float(values["alpha"].strip()) if "alpha" in values else None
+        alpha = float(values["alpha"].strip()) if "alpha" in values else DEFAULT_ALPHA
     except:
-        alpha = None
+        alpha = DEFAULT_ALPHA
 
-    return ticker, start_date, end_date, time_choice, normalize, l1_wt, alpha
+    return ticker, start_date, end_date, time_choice, l1_wt, alpha
 
 
 def add_to_cache(cache, ticker=None, end_date=None, start_date=None, time_choice=None,
-                 normalize=None, l1_wt=None, alpha=None):
+                 l1_wt=None, alpha=None):
     """
     Add values to the cache
     :param cache:
@@ -170,7 +171,6 @@ def add_to_cache(cache, ticker=None, end_date=None, start_date=None, time_choice
     :param end_date:
     :param start_date:
     :param time_choice:
-    :param normalize:
     :param l1_wt:
     :param alpha:
     :return:
@@ -183,12 +183,6 @@ def add_to_cache(cache, ticker=None, end_date=None, start_date=None, time_choice
         cache["start_date"] = start_date
     if time_choice:
         cache["time_choice"] = time_choice
-
-    if normalize:
-        cache["normalize"] = "Yes"
-    else:
-        cache["normalize"] = "No"
-
     if l1_wt:
         cache["l1_wt"] = l1_wt
     if alpha:

@@ -1,7 +1,7 @@
 flask
 jupyter
-mlforecast
-neuralforecast
+#mlforecast
+#neuralforecast
 numpy
 pandas
 plotly
@@ -10,5 +10,5 @@ requests
 scipy
 scikit-learn
 statsmodels
-statsforecast
+#statsforecast
 yfinance

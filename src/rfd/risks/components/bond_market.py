@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from flask import current_app
+
 from rfd.risks.raw import (
     BOND_MARKET_NAME,
     BOND_MARKET_COLOR,
@@ -23,7 +25,7 @@ from rfd.tools.decomposition.pca import get_pca_components
 
 
 NAME = "Credit and Bond Market Risk"
-COLOR = "rgb(200, 200, 200)"
+COLOR = "rgb(200, 150, 200)"
 
 RISKS = [BOND_MARKET_NAME, BOND_MARKET_HY_NAME]
 
@@ -56,8 +58,9 @@ def get_risk(
     :param include_meta:
     :return:
     """
+    import logging
     df = pd.DataFrame()
-
+    current_app.logger.info(f"fetching data for components/bond_market.py")
     for risk in RISKS:
         df[risk] = DATA_MAPPINGS[risk](
             yf_start=yf_start,
@@ -66,12 +69,12 @@ def get_risk(
             normalize=normalize,
             include_date=include_date
         )
-
     component, loadings, explained_variance = get_pca_components(df, n_components=1, include_meta=True)
     series = component.reshape(-1)
     df_risk = pd.DataFrame({NAME: component.reshape(-1)})
     df_risk.index = df.index
-
+    current_app.logger.info(f"components: {list(df_risk.columns)}")
+    current_app.logger.info(f"shape: f{df.shape}")
     if include_meta:
         return df_risk, loadings, explained_variance
     else:

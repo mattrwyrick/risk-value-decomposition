@@ -1,6 +1,10 @@
+import os
 
+from pathlib import Path
 import datetime as dt
 
+SRC_DIR = Path(os.path.dirname(os.path.realpath(__file__))).parent.absolute()
+APP_DIR = os.path.join(SRC_DIR, "bck")
 
 SEED = 25193804
 
@@ -14,6 +18,8 @@ TIMES_MAPPING = {
 TIMES_CHOICE = "Mean"
 
 DATE_COL = "Date"
+
+IDIOSYNCRATIC_RISK_NAME = "Idiosyncratic"
 
 
 def get_yf_date(dtime):
