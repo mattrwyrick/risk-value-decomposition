@@ -1,5 +1,12 @@
+import os
 
+from pathlib import Path
 import datetime as dt
+
+SRC_DIR = Path(os.path.dirname(os.path.realpath(__file__))).parent.absolute()
+APP_DIR = os.path.join(SRC_DIR, "bck")
+
+SEED = 25193804
 
 
 TIMES_MAPPING = {
@@ -11,6 +18,8 @@ TIMES_MAPPING = {
 TIMES_CHOICE = "Mean"
 
 DATE_COL = "Date"
+
+IDIOSYNCRATIC_RISK_NAME = "Idiosyncratic"
 
 
 def get_yf_date(dtime):
@@ -24,6 +33,8 @@ def get_yf_date(dtime):
     day = f"0{dtime.day}" if dtime.day < 10 else dtime.day
     return f"{year}-{month}-{day}"
 
+
+DEFAULT_RISK_TYPE = "structured"
 
 DEFAULT_YEARS_BACK = 3
 

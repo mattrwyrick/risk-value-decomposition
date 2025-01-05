@@ -1,13 +1,14 @@
 flask
 jupyter
-mlforecast
-neuralforecast
+#mlforecast
+#neuralforecast
 numpy
 pandas
 plotly
 pykan
+requests
 scipy
 scikit-learn
 statsmodels
-statsforecast
+#statsforecast
 yfinance
