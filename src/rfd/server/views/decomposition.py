@@ -74,7 +74,7 @@ def view(request, cache={}):
     asset_series = df_asset[ticker]
     date_series = df_asset[DATE_COL]
 
-    df_results = get_structured_risks_decomposition_df(
+    results, df_results = get_structured_risks_decomposition_df(
         asset_series,
         yf_start=start_date,
         yf_end=end_date,
@@ -88,6 +88,8 @@ def view(request, cache={}):
 
     for col in df_results.columns:
         df_results[col] = np.array(df_results[col]) * np.array(asset_series_raw)
+
+
 
     df_results[DATE_COL] = np.array(df_asset[DATE_COL])
 

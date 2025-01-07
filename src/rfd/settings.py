@@ -20,6 +20,8 @@ TIMES_CHOICE = "Mean"
 DATE_COL = "Date"
 
 IDIOSYNCRATIC_RISK_NAME = "Idiosyncratic"
+IDIOSYNCRATIC_RISK_COLOR = "rgb(150, 150, 150)"
+
 
 
 def get_yf_date(dtime):
