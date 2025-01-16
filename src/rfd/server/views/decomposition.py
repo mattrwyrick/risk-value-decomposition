@@ -17,7 +17,7 @@ from rfd.process.decomposition import (
     get_structured_risks_decomposition_df
 )
 
-from rfd.tools.plot.area import get_plot
+from rfd.tools.plot.area import get_plot, get_directional_plot
 
 
 TEMPLATE = "./decomposition.html"
@@ -74,7 +74,7 @@ def view(request, cache={}):
     asset_series = df_asset[ticker]
     date_series = df_asset[DATE_COL]
 
-    results, df_results = get_structured_risks_decomposition_df(
+    results, df_proportions, proportion_dict, df_directional, directional_dict = get_structured_risks_decomposition_df(
         asset_series,
         yf_start=start_date,
         yf_end=end_date,
@@ -86,14 +86,12 @@ def view(request, cache={}):
         fill_missing_method="ffill"
     )
 
-    for col in df_results.columns:
-        df_results[col] = np.array(df_results[col]) * np.array(asset_series_raw)
+    for col in df_proportions.columns:
+        df_proportions[col] = np.array(df_proportions[col]) * np.array(asset_series_raw)
 
+    df_proportions[DATE_COL] = np.array(df_asset[DATE_COL])
 
-
-    df_results[DATE_COL] = np.array(df_asset[DATE_COL])
-
-    fig_area = get_plot(df_results)
+    fig_area = get_plot(df_proportions)
     fig_area.update_yaxes(range=[0, asset_series_raw.max() * 1.1])
     fig_area.update_layout(
         legend=dict(
@@ -106,12 +104,32 @@ def view(request, cache={}):
     )
     html_area = fig_area.to_html()
 
+
+    for col in df_directional.columns:
+        df_directional[col] = np.array(df_directional[col]) * np.array(asset_series_raw)
+
+    df_directional[DATE_COL] = np.array(df_asset[DATE_COL])
+
+    fig_area2 = get_directional_plot(df_directional)
+    fig_area2.update_yaxes(range=[0, asset_series_raw.max() * 1.1])
+    fig_area2.update_layout(
+        legend=dict(
+            orientation="h",  # horizontal layout
+            yanchor="top",  # aligns legend at the top of the chart
+            y=-0.2,  # places legend below the chart
+            xanchor="center",
+            x=0.5  # centers legend horizontally
+        )
+    )
+    html_area2 = fig_area2.to_html()
+
     fig_line = px.line(df_asset_raw, x=DATE_COL, y=ticker)
     fig_line.update_yaxes(range=[0, asset_series_raw.max() * 1.1])
     html_line = fig_line.to_html()
 
     cache["area_chart"] = html_area
-    cache["line_chart"] = html_line
+    # cache["line_chart"] = html_line
+    cache["line_chart"] = html_area2
 
     return render_template(TEMPLATE, **cache)
 

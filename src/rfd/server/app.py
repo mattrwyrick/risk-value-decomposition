@@ -22,7 +22,7 @@ app.logger.addHandler(info_handler)
 
 @app.route('/', methods=["GET", "POST"])
 def index():
-    return home_view(request, {"title": "Risk Factor Decomposition"})
+    return decomposition_view(request, {"title": "Risk Factor Decomposition"})
 
 
 @app.route('/decomposition', methods=["GET", "POST"])

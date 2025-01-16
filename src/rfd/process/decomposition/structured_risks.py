@@ -5,7 +5,7 @@ from rfd.settings import DEFAULT_YF_START_DATE, DEFAULT_YF_END_DATE, TIMES_CHOIC
 
 from rfd.risks import get_structured_component_risk_inputs_df
 
-from rfd.tools.regression.linear_regularization import get_fit, get_proportion_df
+from rfd.tools.regression.linear_regularization import get_fit, get_proportion_df, get_directional_df
 
 
 def get_decomposition_df(
@@ -53,8 +53,10 @@ def get_decomposition_df(
         asset_series = asset_series[n_inputs - n_target:]
 
     results = get_fit(asset_series, df_risks)
-    df_proportions = get_proportion_df(asset_series, results, list(df_risks.columns))
-    return results, df_proportions
+    df_proportions, proportion_dict = get_proportion_df(asset_series, results, list(df_risks.columns))
+    df_directional, directional_dict = get_directional_df(asset_series, results, list(df_risks.columns))
+
+    return results, df_proportions, proportion_dict, df_directional, directional_dict
 
 
 
