@@ -7,7 +7,7 @@ from rfd.tools.plot import get_ordered_y_columns
 
 from rfd.risks import RAW_RISK_COLOR_MAPPING, STRUCTURED_RISK_COLOR_MAPPING
 from rfd.risks.raw.baseline import COLOR as BASELINE_COLOR, NAME as BASELINE_NAME
-from settings import IDIOSYNCRATIC_RISK_NAME, IDIOSYNCRATIC_RISK_COLOR
+from rfd.settings import IDIOSYNCRATIC_RISK_NAME, IDIOSYNCRATIC_RISK_COLOR
 
 
 def get_plot(df, risk_type=DEFAULT_RISK_TYPE, show=False):
