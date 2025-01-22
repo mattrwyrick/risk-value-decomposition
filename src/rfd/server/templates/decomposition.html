@@ -1,4 +1,3 @@
-
 {% include '/layout/top.html' %}
 {% block content %}
 
@@ -29,14 +28,6 @@
                                 <option value="Open">Open</option>
                             </select>
                         </div>
-<!--                        <div class="form-group">-->
-<!--                            <label for="l1_wt">L1 Weight:</label>-->
-<!--                            <input type="number" class="form-control" id="l1_wt" name="l1_wt" value="{{ l1_wt }}" step="any" min="0" max="1">-->
-<!--                        </div>-->
-<!--                        <div class="form-group">-->
-<!--                            <label for="alpha">Alpha:</label>-->
-<!--                            <input type="number" class="form-control" id="alpha" name="alpha" value="{{ alpha }}" step="any">-->
-<!--                        </div>-->
                         <div class="form-group">
                             <button type="submit" style="width:100%" class="btn btn-primary">Process</button>
                         </div>
@@ -50,6 +41,9 @@
                     <h2 class="card-title">Decomposition</h2>
                     <ul class="nav nav-tabs" id="analysisTabs" role="tablist">
                         <li class="nav-item">
+                            <a class="nav-link" id="report-tab" data-toggle="tab" href="#report" role="tab" aria-controls="report" aria-selected="false">Report</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link active" id="stock-tab" data-toggle="tab" href="#stock" role="tab" aria-controls="stock" aria-selected="true">Directional</a>
                         </li>
                         <li class="nav-item">
@@ -57,14 +51,20 @@
                         </li>
                     </ul>
                     <div class="tab-content flex-grow-1" id="analysisTabsContent">
+                        <div class="tab-pane fade chart-container" id="report" role="tabpanel" aria-labelledby="report-tab">
+                            <div id="reportDiv" class="p-3">
+                                <div id="pieChartDiv" class="mb-4 text-center">
+                                    {{ pie_chart | safe }}
+                                </div>
+                                <pre style="white-space: pre-wrap;">{{ (explanation or '') | replace('\n', '<br>') | safe }}</pre>
+                            </div>
+                        </div>
                         <div class="tab-pane fade show active chart-container" id="stock" role="tabpanel" aria-labelledby="stock-tab">
-                            <!-- Line Chart will be rendered here -->
                             <div id="stockChartDiv">
                                 {{ line_chart | safe }}
                             </div>
                         </div>
                         <div class="tab-pane fade chart-container" id="decomposition" role="tabpanel" aria-labelledby="decomposition-tab">
-                            <!-- Area Chart will be rendered here -->
                             <div id="decompositionChartDiv" class="hidden">
                                 {{ area_chart | safe }}
                             </div>
@@ -76,12 +76,11 @@
     </div>
 </div>
 
- <script>
-        const selectedOption = "{{ time_choice }}";
-        const dropdown = document.getElementById('time_choice');
-        dropdown.value = selectedOption;
- </script>
+<script>
+    const selectedOption = "{{ time_choice }}";
+    const dropdown = document.getElementById('time_choice');
+    dropdown.value = selectedOption;
+</script>
 
 {% endblock %}
 {% include '/layout/bottom.html' %}
-

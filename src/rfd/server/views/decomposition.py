@@ -17,7 +17,11 @@ from rfd.process.decomposition import (
     get_structured_risks_decomposition_df
 )
 
-from rfd.tools.plot.area import get_plot, get_directional_plot
+from rfd.process.explanation.structured_risks import report
+
+from rfd.tools.plot.pie import get_plot as pie_plot
+
+from rfd.tools.plot.area import get_plot as area_plot, get_directional_plot
 
 
 TEMPLATE = "./decomposition.html"
@@ -91,7 +95,7 @@ def view(request, cache={}):
 
     df_proportions[DATE_COL] = np.array(df_asset[DATE_COL])
 
-    fig_area = get_plot(df_proportions)
+    fig_area = area_plot(df_proportions)
     fig_area.update_yaxes(range=[0, asset_series_raw.max() * 1.1])
     fig_area.update_layout(
         legend=dict(
@@ -109,6 +113,12 @@ def view(request, cache={}):
         df_directional[col] = np.array(df_directional[col]) * np.array(asset_series_raw)
 
     df_directional[DATE_COL] = np.array(df_asset[DATE_COL])
+
+    explanation = report(ticker, start_date, end_date, proportion_dict, directional_dict)
+    cache["explanation"] = explanation
+
+    pie_chart = pie_plot(ticker, start_date, end_date, proportion_dict, directional_dict)
+    cache["pie_chart"] = pie_chart.to_html()
 
     fig_area2 = get_directional_plot(df_directional)
     fig_area2.update_yaxes(range=[0, asset_series_raw.max() * 1.1])
