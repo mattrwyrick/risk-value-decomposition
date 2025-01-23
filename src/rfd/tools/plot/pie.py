@@ -21,6 +21,7 @@ def get_plot(ticker, start_date, end_date, proportion_dict, directional_dict):
 
     factor_labels = []
     factor_values = []
+    factor_sort = []
     colors = []
 
     # Gradient color settings
@@ -38,9 +39,12 @@ def get_plot(ticker, start_date, end_date, proportion_dict, directional_dict):
         if factor not in [IDIOSYNCRATIC_RISK_NAME, BASELINE_NAME]:
             factor_labels.append(f"{factor}")
             factor_values.append(contribution)
+            factor_sort.append(["IDIO", direction, contribution, factor])
         else:
             factor_labels.append(factor)
             factor_values.append(contribution)
+            factor_sort.append(["", direction, contribution, factor])
+
 
         # Assign custom colors to Baseline and Idiosyncratic factors
         if factor == BASELINE_NAME:
@@ -62,6 +66,14 @@ def get_plot(ticker, start_date, end_date, proportion_dict, directional_dict):
             count += step
 
         colors.append(color)
+        factor_sort[-1].append(color)
+
+
+    factor_sort.sort()
+
+    factor_labels = [x[3] for x in factor_sort]
+    factor_values = [x[2] for x in factor_sort]
+    colors = [x[4] for x in factor_sort]
 
     # Generate Pie Chart
     fig = go.Figure(data=[go.Pie(
@@ -69,24 +81,24 @@ def get_plot(ticker, start_date, end_date, proportion_dict, directional_dict):
         values=factor_values,
         textinfo='label+percent',
         insidetextorientation='radial',
-        marker=dict(colors=colors)  # Apply the gradient color scheme
+        marker=dict(colors=colors),
+        sort=False
     )])
 
     fig.update_layout(
-        title=f"Factor Contribution for {ticker}",
+        title=f"Factors ({ticker})",
         font=dict(size=14),
         showlegend=True,
         legend=dict(
-            orientation="h",  # Horizontal layout
-            x=0.5,  # Center legend horizontally
-            y=-0.2,  # Position legend below the chart
-            xanchor="center",
-            yanchor="top"
+            orientation="v",  # Vertical layout
+            x=1.50,  # Position legend far right
+            y=0.03,  # Position the legend closer to the bottom
+            xanchor="left",  # Anchor to the left of the legend box
+            yanchor="bottom",  # Anchor to the bottom of the legend box
+            font=dict(size=10),  # Shrink the legend font size
+            traceorder="normal",  # Keep the order of items in the legend as they are
         ),
-        margin=dict(l=20, r=20, t=50, b=80)
+        margin=dict(l=20, r=150, t=50, b=80)  # Adjust right margin to accommodate legend
     )
-
-    # Convert plot to HTML for embedding
-    # pie_chart_html = fig.to_html(full_html=False)
 
     return fig

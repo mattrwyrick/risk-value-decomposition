@@ -18,7 +18,7 @@
                         </div>
                         <div class="form-group">
                             <label for="end_date">End Date:</label>
-                            <input type="date" class="form-control" id="end_date" name="end_date" value = "{{ end_date }}">
+                            <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
                         </div>
                         <div class="form-group">
                             <label for="time_choice">Time Choice:</label>
@@ -41,25 +41,46 @@
                     <h2 class="card-title">Decomposition</h2>
                     <ul class="nav nav-tabs" id="analysisTabs" role="tablist">
                         <li class="nav-item">
-                            <a class="nav-link" id="report-tab" data-toggle="tab" href="#report" role="tab" aria-controls="report" aria-selected="false">Report</a>
+                            <a class="nav-link active" id="report-tab" data-toggle="tab" href="#report" role="tab" aria-controls="report" aria-selected="true">Report</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link active" id="stock-tab" data-toggle="tab" href="#stock" role="tab" aria-controls="stock" aria-selected="true">Directional</a>
+                            <a class="nav-link" id="stock-tab" data-toggle="tab" href="#stock" role="tab" aria-controls="stock" aria-selected="false">Directional</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" id="decomposition-tab" data-toggle="tab" href="#decomposition" role="tab" aria-controls="decomposition" aria-selected="false">Volume</a>
                         </li>
                     </ul>
                     <div class="tab-content flex-grow-1" id="analysisTabsContent">
-                        <div class="tab-pane fade chart-container" id="report" role="tabpanel" aria-labelledby="report-tab">
+                        <div class="tab-pane fade show active chart-container" id="report" role="tabpanel" aria-labelledby="report-tab">
                             <div id="reportDiv" class="p-3">
-                                <div id="pieChartDiv" class="mb-4 text-center">
-                                    {{ pie_chart | safe }}
+                                <div class="row">
+                                    <!-- Pie Chart Full Width (3/4 width of the parent container) -->
+                                    <div class="col-md-12">
+
+                                        <div>
+                                            <div id="pieChartDiv" class="mb-4 text-center">
+                                                {{ pie_chart | safe }}
+                                            </div>
+                                            <p style="font-size: 0.7em; font-style: italic; color: #6c757d;">
+                                            *Factor color indicates <span style="color: green;">positive</span> / <span style="color: red;">negative</span> relationship with {{ ticker }}
+
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <pre style="white-space: pre-wrap;">{{ (explanation or '') | replace('\n', '<br>') | safe }}</pre>
+
+                                <!-- Only display explanation if there is an explanation -->
+                                {% if explanation %}
+                                <div class="financial-report-explanation">
+                                    <h4 class="font-weight-bold">Explanation:</h4>
+                                    <p class="text-muted">
+                                        {{ explanation | replace('\n', '<br>') | safe }}
+                                    </p>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
-                        <div class="tab-pane fade show active chart-container" id="stock" role="tabpanel" aria-labelledby="stock-tab">
+                        <div class="tab-pane fade chart-container" id="stock" role="tabpanel" aria-labelledby="stock-tab">
                             <div id="stockChartDiv">
                                 {{ line_chart | safe }}
                             </div>
@@ -84,3 +105,40 @@
 
 {% endblock %}
 {% include '/layout/bottom.html' %}
+
+<style>
+    .financial-report-explanation {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        font-family: Georgia, serif;
+        margin-top: 30px;
+    }
+
+    .financial-report-explanation h4 {
+        font-size: 1.25rem;
+        margin-bottom: 15px;
+        color: #343a40;
+    }
+
+    .financial-report-explanation p {
+        line-height: 1.6;
+        font-size: 1rem;
+        color: #495057;
+    }
+
+    .financial-report-explanation p.text-muted {
+        color: #6c757d;
+    }
+
+    .financial-report-explanation pre {
+        white-space: pre-wrap;
+        background-color: #e9ecef;
+        padding: 15px;
+        border-radius: 5px;
+        font-size: 0.95rem;
+        font-family: Consolas, 'Courier New', monospace;
+    }
+</style>

@@ -13,6 +13,7 @@ from rfd.settings import (
 NAME = "Baseline"
 COLOR = "rgb(200, 200, 200)"
 
+
 def get_risk(yf_start=DEFAULT_YF_START_DATE, yf_end=DEFAULT_YF_END_DATE, time_choice=TIMES_CHOICE, normalize=True, include_date=False):
     """
     Return the risk indicator time series for the given daterange
