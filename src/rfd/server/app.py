@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for
 from rfd.settings import SRC_DIR
 from rfd.server.views.home import view as home_view
 from rfd.server.views.decomposition import view as decomposition_view
+from rfd.server.views.calls import view as calls_view
 from rfd.server.views.test import view as test_view
 
 
@@ -28,6 +29,10 @@ def index():
 @app.route('/decomposition', methods=["GET", "POST"])
 def decomposition():
     return decomposition_view(request, {"title": "Risk Factor Decomposition"})
+
+@app.route('/options/calls', methods=["GET", "POST"])
+def options_calls():
+    return calls_view(request, {"title": "Risk Factor Decomposition"})
 
 @app.route('/test', methods=["GET", "POST"])
 def test():

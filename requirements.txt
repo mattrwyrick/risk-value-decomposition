@@ -10,5 +10,6 @@ requests
 scipy
 scikit-learn
 statsmodels
+openbb
 #statsforecast
 yfinance
