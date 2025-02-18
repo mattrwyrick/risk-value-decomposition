@@ -6,27 +6,27 @@
         <div class="col-md-3">
             <div class="card shadow-lg full-height">
                 <div class="card-body">
-                    <h2 class="card-title">Model Input</h2>
-                    <form action="/decomposition" method="post">
+                    <h2 class="card-title">Call Input</h2>
+                    <form action="/options/calls" method="post">
                         <div class="form-group">
                             <label for="ticker">Stock Ticker:</label>
                             <input type="text" class="form-control" id="ticker" name="ticker" value="{{ ticker }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="strike_price">Strike Price:</label>
+                            <input type="number" class="form-control" id="strike_price" name="strike_price" value="{{ strike_price }}">
                         </div>
                         <div class="form-group">
                             <label for="start_date">Start Date:</label>
                             <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
                         </div>
                         <div class="form-group">
-                            <label for="end_date">End Date:</label>
-                            <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                            <label for="days_to_expiration">Days to Expiration:</label>
+                            <input type="number" class="form-control" id="days_to_expiration" name="time_to_exp" value="{{ time_to_exp }}">
                         </div>
                         <div class="form-group">
-                            <label for="time_choice">Time Choice:</label>
-                            <select class="form-control" id="time_choice" name="time_choice">
-                                <option value="Close">Close</option>
-                                <option value="Mean">Mean</option>
-                                <option value="Open">Open</option>
-                            </select>
+                            <label for="risk_free_rate">Risk-Free Rate (%):</label>
+                            <input type="number" step="0.0001" class="form-control" id="risk_free_rate" name="risk_free_rate" value="{{ risk_free_rate }}">
                         </div>
                         <div class="form-group">
                             <button type="submit" style="width:100%" class="btn btn-primary">Process</button>
@@ -41,56 +41,31 @@
                     <h2 class="card-title">Decomposition</h2>
                     <ul class="nav nav-tabs" id="analysisTabs" role="tablist">
                         <li class="nav-item">
-                            <a class="nav-link active" id="report-tab" data-toggle="tab" href="#report" role="tab" aria-controls="report" aria-selected="true">Report</a>
+                            <a class="nav-link active" id="report-tab" data-toggle="tab" href="#report" role="tab" aria-controls="report" aria-selected="true">Stock and Strike</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" id="stock-tab" data-toggle="tab" href="#stock" role="tab" aria-controls="stock" aria-selected="false">Directional</a>
+                            <a class="nav-link" id="stock-tab" data-toggle="tab" href="#stock" role="tab" aria-controls="stock" aria-selected="false">Greeks</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" id="decomposition-tab" data-toggle="tab" href="#decomposition" role="tab" aria-controls="decomposition" aria-selected="false">Volume</a>
+                            <a class="nav-link" id="decomposition-tab" data-toggle="tab" href="#decomposition" role="tab" aria-controls="decomposition" aria-selected="false">Volatility</a>
                         </li>
                     </ul>
                     <div class="tab-content flex-grow-1" id="analysisTabsContent">
                         <div class="tab-pane fade show active chart-container" id="report" role="tabpanel" aria-labelledby="report-tab">
                             <div id="reportDiv" class="p-3">
-                                <div class="row">
-                                    <!-- Pie Chart Full Width (3/4 width of the parent container) -->
-                                    {% if pie_chart %}
-                                    <div class="col-md-12">
-
-                                        <div>
-                                            <div id="pieChartDiv" class="mb-4 text-center">
-                                                {{ pie_chart | safe }}
-                                            </div>
-                                            <p style="font-size: 0.7em; font-style: italic; color: #6c757d;">
-                                            *Factor color indicates <span style="color: green;">positive</span> / <span style="color: red;">negative</span> relationship with {{ ticker }}
-
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {% endif %}
-
+                                <div id="pieChartDiv" class="mb-4 text-center">
+                                    {{ pie_chart | safe }}
                                 </div>
-
-                                <!-- Only display explanation if there is an explanation -->
-                                {% if explanation %}
-                                <div class="financial-report-explanation">
-                                    <h4 class="font-weight-bold">Explanation:</h4>
-                                    <p class="text-muted">
-                                        {{ explanation | replace('\n', '<br>') | safe }}
-                                    </p>
-                                </div>
-                                {% endif %}
                             </div>
                         </div>
                         <div class="tab-pane fade chart-container" id="stock" role="tabpanel" aria-labelledby="stock-tab">
                             <div id="stockChartDiv">
-                                {{ line_chart | safe }}
+                                {{ area_chart | safe }}
                             </div>
                         </div>
                         <div class="tab-pane fade chart-container" id="decomposition" role="tabpanel" aria-labelledby="decomposition-tab">
                             <div id="decompositionChartDiv" class="hidden">
-                                {{ area_chart | safe }}
+                                {{ line_chart | safe }}
                             </div>
                         </div>
                     </div>

@@ -42,6 +42,29 @@
             let chartId = $(e.target).attr('href').substring(1);
             Plotly.Plots.resize(document.getElementById(chartId).getElementsByClassName('js-plotly-plot')[0]);
         });
+
+
+
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        // Hide the other charts to avoid white space issues
+        if ($(e.target).attr('href') === '#report') {
+            $('#decompositionChartDiv').addClass('hidden');
+            $('#stockChartDiv').addClass('hidden');
+            $('#pieChartDiv').removeClass('hidden');
+        } else if ($(e.target).attr('href') === '#stock') {
+            $('#decompositionChartDiv').addClass('hidden');
+            $('#pieChartDiv').addClass('hidden');
+            $('#stockChartDiv').removeClass('hidden');
+        } else if ($(e.target).attr('href') === '#decomposition') {
+            $('#stockChartDiv').addClass('hidden');
+            $('#pieChartDiv').addClass('hidden');
+            $('#decompositionChartDiv').removeClass('hidden');
+        }
+
+        // Redraw the Plotly chart when the tab is shown
+        let chartId = $(e.target).attr('href').substring(1);
+        Plotly.Plots.resize(document.getElementById(chartId).getElementsByClassName('js-plotly-plot')[0]);
+    });
     });
 </script>
 
